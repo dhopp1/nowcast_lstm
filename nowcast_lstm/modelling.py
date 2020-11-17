@@ -1,5 +1,5 @@
 import torch
-import nowcast_lstm.mv_lstm as mv_lstm
+import nowcast_lstm.mv_lstm
 
 
 def instantiate_model(
@@ -7,7 +7,7 @@ def instantiate_model(
     n_timesteps,
     n_hidden=20,
     n_layers=2,
-    dropout=0.98,
+    dropout=0,
     lr=1e-2,
     criterion="",
     optimizer="",
@@ -15,66 +15,90 @@ def instantiate_model(
     """Create the network, criterion, and optimizer objects necessary for training a model
 	
 	parameters:
-		:model_input: pandas DataFrame: output of `gen_model_input` function, first entry in tuple (X)
+		:model_input: numpy array: output of `gen_model_input` function, first entry in tuple (X)
 		:n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
 		:n_hidden: int: number of hidden states in the network
 		:n_layers: int: number of LSTM layers in the network
-		:dropout: float: learning rate decay rate
+		:dropout: float: dropout rate between the LSTM layers
 		:lr: float: learning rate
 		:criterion: torch loss criterion, defaults to MAE
 		:optimizer: torch optimizer, defaults to Adam
 	
-	output:
-		:return: numpy array: n x m+1 array
+	output: Dict
+		:mv_lstm: torch network
+		:criterion: torch criterion
+		:optimizer: torch optimizer
 	"""
 
     n_features = model_x_input.shape[
         2
     ]  # 3rd axis of the matrix is the number of features
-    net = mv_lstm.MV_LSTM(n_features, n_timesteps, n_hidden, n_layers, dropout)
+    mv_lstm = nowcast_lstm.mv_lstm.MV_LSTM(n_features, n_timesteps, n_hidden, n_layers, dropout)
     if criterion == "":
         criterion = torch.nn.L1Loss()
     if optimizer == "":
-        optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+        optimizer = torch.optim.Adam(mv_lstm.parameters(), lr=lr)
     return {
-        "net": net,
+        "mv_lstm": mv_lstm,
         "criterion": criterion,
         "optimizer": optimizer,
     }
 
 
 def train_model(
-    X, y, n_timesteps, mv_lstm, criterion, optimizer, train_episodes, batch_size, decay
+    X, y, mv_lstm, criterion, optimizer, train_episodes=200, batch_size=30, decay=0.98, quiet=False
 ):
-    train_loss = []  # for plotting train loss
-    my_lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+	"""Train the network
+	
+	parameters:
+		:X: numpy array: output of `gen_model_input` function, first entry in tuple (X), input variables
+		:y: numpy array: output of `gen_model_input` function, second entry in tuple (y), targets
+		:mv_lstm: torch network: output of `instantiate_model` function, "mv_lstm" entry
+		:criterion: torch criterion: output of `instantiate_model` function, "criterion" entry, MAE is default
+		:optimizer: torch optimizer: output of `instantiate_model` function, "optimizer" entry, Adam is default
+		:train_episodes: int: number of epochs/episodes to train the model
+		:batch_size: int: number of observations per training batch
+		:decay: float: learning rate decay
+		:quiet: boolean: whether or not to print the losses in the epoch loop
+	
+	output:
+		:return: Dict
+			:mv_lstm: trained network
+			:train_loss: list of losses per epoch, for informational purposes
+	"""
+	train_loss = []  # for plotting train loss
+	my_lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
         optimizer=optimizer, gamma=decay
     )  # for learning rate decay
-    mv_lstm.train()
-    for t in range(train_episodes):
-        for b in range(0, len(X), batch_size):
-            inpt = X[b : b + batch_size, :, :]
-            target = y[b : b + batch_size]
+	
+	mv_lstm.train()
+	for t in range(train_episodes):
+		for b in range(0, len(X), batch_size):
+			inpt = X[b : b + batch_size, :, :]
+			target = y[b : b + batch_size]
 
-            x_batch = torch.tensor(inpt, dtype=torch.float32)
-            y_batch = torch.tensor(target, dtype=torch.float32)
+			x_batch = torch.tensor(inpt, dtype=torch.float32)
+			y_batch = torch.tensor(target, dtype=torch.float32)
 
-            mv_lstm.init_hidden(x_batch.size(0))
-            output = mv_lstm(x_batch)
-            loss = criterion(output.view(-1), y_batch)
+			mv_lstm.init_hidden(x_batch.size(0))
+			output = mv_lstm(x_batch)
+			loss = criterion(output.view(-1), y_batch)
 
-            loss.backward()
+			loss.backward()
 
-            optimizer.step()
-            optimizer.zero_grad()
+			optimizer.step()
+			optimizer.zero_grad()
 
-        my_lr_scheduler.step()
+		my_lr_scheduler.step() # learning rate decay
 
-        print("step : ", t, "loss : ", loss.item())
-        train_loss.append(loss.item())
-    return {
-        "mv_lstm": mv_lstm,
-        "train_loss": train_loss,
+		if not(quiet):
+		    print("step : ", t, "loss : ", loss.item())
+            
+		train_loss.append(loss.item())
+        
+	return {
+		"mv_lstm": mv_lstm,
+		"train_loss": train_loss,
     }
 
 
