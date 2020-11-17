@@ -43,7 +43,7 @@ def gen_dataset(rawdata, target_variable):
     return dataset
 
 
-def gen_model_input(dataset, n_steps):
+def gen_model_input(dataset, n_timesteps):
     """Final step in generating a dataset the model will accept
 	Input should be output of the `gen_dataset` function. Creates two series, X for input and y for target. 
 	y is a one-dimensional np array equivalent to a list of target values. 
@@ -53,7 +53,7 @@ def gen_model_input(dataset, n_steps):
 	
 	parameters:
 		:dataset: numpy array: n x m+1 array
-		:n_steps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
+		:n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
 	
 	output:
 		:return: numpy tuple of:
@@ -64,7 +64,7 @@ def gen_model_input(dataset, n_steps):
     X, y = list(), list()
     for i in range(len(dataset)):
         # find the end of this pattern
-        end_ix = i + n_steps
+        end_ix = i + n_timesteps
         # check if we are beyond the dataset
         if end_ix > len(dataset):
             break
