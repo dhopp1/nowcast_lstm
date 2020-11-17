@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: nowcast-lstm-dhopp1
+Version: 0.0.1
+Summary: Code for running LSTM neural networks on economic data for nowcasting
+Home-page: https://github.com/dhopp1/nowcast_lstm
+Author: Daniel Hopp
+Author-email: daniel.hopp@un.org
+License: UNKNOWN
+Description: # nowcast_lstm
+        LSTM neural networks for nowcasting economic data.
+        
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
