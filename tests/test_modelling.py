@@ -30,7 +30,7 @@ class TestModelling(unittest.TestCase):
         self.assertEqual(
             str(type(result["optimizer"])), "<class 'torch.optim.adam.Adam'>"
         )
-        
+
     def test_train_model(self):
         model_input = data_setup.gen_model_input(
             data_setup.gen_dataset(self.x, "target"), n_timesteps=2
@@ -38,13 +38,30 @@ class TestModelling(unittest.TestCase):
         result = modelling.instantiate_model(model_input[0], n_timesteps=2)
         model = result["mv_lstm"]
         crit = result["criterion"]
-        opt  = result["optimizer"]
-        model_result = modelling.train_model(model_input[0], model_input[1], model, crit, opt, quiet=True)
+        opt = result["optimizer"]
+        model_result = modelling.train_model(
+            model_input[0], model_input[1], model, crit, opt, quiet=True
+        )
         model = model_result["mv_lstm"]
         loss = model_result["train_loss"]
-        
 
         self.assertEqual(len(loss), 200)
+
+    def test_predict(self):
+        model_input = data_setup.gen_model_input(
+            data_setup.gen_dataset(self.x, "target"), n_timesteps=2
+        )
+        result = modelling.instantiate_model(model_input[0], n_timesteps=2)
+        model = result["mv_lstm"]
+        crit = result["criterion"]
+        opt = result["optimizer"]
+        model_result = modelling.train_model(
+            model_input[0], model_input[1], model, crit, opt, quiet=True
+        )
+        model = model_result["mv_lstm"]
+        preds = modelling.predict(model_input[0], model)
+
+        self.assertEqual(len(preds), 2)
 
 
 if __name__ == "__main__":

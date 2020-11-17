@@ -16,6 +16,7 @@ def gen_dataset(rawdata, target_variable):
 	
 	parameters:
 		:rawdata: pandas DataFrame: n x m+1 dataframe
+        :target_variable: str: name of the target variable column
 	
 	output:
 		:return: numpy array: n x m+1 array
@@ -47,17 +48,17 @@ def gen_model_input(dataset, n_timesteps):
     """Final step in generating a dataset the model will accept
 	Input should be output of the `gen_dataset` function. Creates two series, X for input and y for target. 
 	y is a one-dimensional np array equivalent to a list of target values. 
-	X is an n x n_steps x m matrix. 
+	X is an n x n_timesteps x m matrix. 
 	Essentially the input data for each test observation becomes an n_steps x m matrix instead of a single row of data. In this way the LSTM network can learn from each variables past, not just its current value.
 	Observations that don't have enough n_steps history will be dropped.
 	
 	parameters:
 		:dataset: numpy array: n x m+1 array
-		:n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
+		:n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_timesteps=12 would consider data for the last year.
 	
 	output:
 		:return: numpy tuple of:
-			X: `n_obs x n_steps x n_features`
+			X: `n_obs x n_timesteps x n_features`
 			y: `n_obs`
 	"""
 
@@ -72,4 +73,10 @@ def gen_model_input(dataset, n_timesteps):
         seq_x, seq_y = dataset[i:end_ix, :-1], dataset[end_ix - 1, -1]
         X.append(seq_x)
         y.append(seq_y)
-    return np.array(X), np.array(y)
+
+    X = np.array(X)
+    y = np.array(y)
+    X = X[y != 0.0, :, :]  # delete na ys, no useful training data
+    y = y[y != 0.0]
+
+    return X, y

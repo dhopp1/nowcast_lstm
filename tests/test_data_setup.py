@@ -24,7 +24,7 @@ class TestDataSetup(unittest.TestCase):
 
     def test_gen_model_input(self):
         result = data_setup.gen_model_input(
-            data_setup.gen_dataset(self.x, "target"), n_steps=2
+            data_setup.gen_dataset(self.x, "target"), n_timesteps=2
         )
         self.assertTrue(
             (
