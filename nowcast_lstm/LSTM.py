@@ -15,6 +15,7 @@ class LSTM:
     `model.predict(LSTM(new_data, target, n_timesteps, False).X)` to test on a totally new set of data
     `model.mv_lstm` to get a list of n_models length of torch networks
     `model.train_loss` to get a list of lists (len = n_models) of training losses per epoch
+    `model.gen_ragged_X(pub_lags, lag)` to generate a data vintage of X model input, useful for evaluation, how would this model have performed historically with missing data.
     
 	
 	parameters:
@@ -119,3 +120,15 @@ class LSTM:
             preds.append(self.modelling.predict(X, self.mv_lstm[i]))
 
         return list(np.mean(preds, axis=0))
+
+    def gen_ragged_X(self, pub_lags, lag):
+        """Produce vintage model inputs X given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)
+	
+    	parameters:
+    		:pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
+            :lag: int: simulated periods back. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc.
+    	
+    	output:
+    		:return: numpy array equivalent in shape to X input, but with trailing edges set to missing/0
+    	"""
+        return self.data_setup.gen_ragged_X(self.X, pub_lags, lag)

@@ -82,3 +82,28 @@ def gen_model_input(dataset, n_timesteps, drop_missing_ys=True):
         y = y[y != 0.0]
 
     return X, y
+
+
+def gen_ragged_X(X, pub_lags, lag):
+    """Produce vintage model inputs given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)
+	
+	parameters:
+		:X: numpy array: n x m+1 array, output of `gen_model_input` function, or an instantiated LSTM object, `LSTM().X`
+		:pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
+        :lag: int: simulated periods back. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc.
+	
+	output:
+		:return: numpy array equivalent in shape to X input, but with trailing edges set to missing/0
+	"""
+
+    X_ragged = np.array(X)
+    for obs in range(X_ragged.shape[0]):  # go through every observation
+        for var in range(len(pub_lags)):  # every variable (and its corresponding lag)
+            for ragged in range(
+                1, pub_lags[var] + 1 - lag
+            ):  # setting correct lags (-lag because input -2 for -2 months, so +2 additional months of lag)
+                X_ragged[
+                    obs, X_ragged.shape[1] - ragged, var
+                ] = 0.0  # setting to missing data
+
+    return X_ragged
