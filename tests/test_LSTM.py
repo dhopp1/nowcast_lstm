@@ -18,6 +18,15 @@ class TestDataSetup(unittest.TestCase):
         model = LSTM.LSTM(self.x, "target", 2)
         model.train(quiet=True)
         self.assertEqual(len(model.predict(model.X)), 2)
+        
+    def test_LSTM_newdata(self):
+        model = LSTM.LSTM(self.x, "target", 2)
+        model.train(quiet=True)
+        new_x = self.x
+        new_x.iloc[1:,3] = 0.0 # simulating no actuals for this, still able to predict
+        preds = model.predict(LSTM.LSTM(new_x, "target", 2, False).X)
+        
+        self.assertEqual(len(preds), 2)
 
 
 if __name__ == "__main__":

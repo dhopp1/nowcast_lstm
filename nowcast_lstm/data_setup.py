@@ -44,7 +44,7 @@ def gen_dataset(rawdata, target_variable):
     return dataset
 
 
-def gen_model_input(dataset, n_timesteps):
+def gen_model_input(dataset, n_timesteps, drop_missing_ys=True):
     """Final step in generating a dataset the model will accept
 	Input should be output of the `gen_dataset` function. Creates two series, X for input and y for target. 
 	y is a one-dimensional np array equivalent to a list of target values. 
@@ -54,7 +54,8 @@ def gen_model_input(dataset, n_timesteps):
 	
 	parameters:
 		:dataset: numpy array: n x m+1 array
-		:n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_timesteps=12 would consider data for the last year.
+		:n_timesteps: int: how many historical periods to consider when training the model. For example if the original data is monthly, n_timesteps=12 would consider data for the last year.
+        :drop_missing_ys: boolean: whether or not to filter out missing ys. Set to true when creating training data, false when want to run predictions on data that may not have a y.
 	
 	output:
 		:return: numpy tuple of:
@@ -76,7 +77,8 @@ def gen_model_input(dataset, n_timesteps):
 
     X = np.array(X)
     y = np.array(y)
-    X = X[y != 0.0, :, :]  # delete na ys, no useful training data
-    y = y[y != 0.0]
+    if drop_missing_ys:
+        X = X[y != 0.0, :, :]  # delete na ys, no useful training data
+        y = y[y != 0.0]
 
     return X, y

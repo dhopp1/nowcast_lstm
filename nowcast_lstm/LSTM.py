@@ -11,12 +11,13 @@ class LSTM:
     `model.X` to see model inputs
     `model.y` to see actual ys
     `model.predict(model.X)` to get predictions on the train set
-    To test on a totally new set of data: `model.predict(LSTM(new_data, target, n_timesteps).X)`
+    To test on a totally new set of data: `model.predict(LSTM(new_data, target, n_timesteps, False).X)`
 	
 	parameters:
 		:data: pandas DataFrame: n x m+1 dataframe
         :target_variable: str: name of the target var
         :n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
+        :drop_missing_ys: boolean: whether or not to filter out missing ys. Set to true when creating training data, false when want to run predictions on data that may not have a y.
         :train_episodes: int: number of epochs/episodes to train the model
         :batch_size: int: number of observations per training batch
         :lr: float: learning rate
@@ -38,6 +39,7 @@ class LSTM:
         data,
         target_variable,
         n_timesteps,
+        drop_missing_ys=True,
         train_episodes=200,
         batch_size=30,
         lr=1e-2,
@@ -46,7 +48,7 @@ class LSTM:
         n_layers=2,
         dropout=0,
         criterion="",
-        optimizer="",
+        optimizer=""
     ):
         self.data_setup = import_module("nowcast_lstm.data_setup")
         self.modelling = import_module("nowcast_lstm.modelling")
@@ -63,10 +65,11 @@ class LSTM:
         self.dropout = dropout
         self.criterion = criterion
         self.optimizer = optimizer
+        self.drop_missing_ys = drop_missing_ys
 
         self.dataset = self.data_setup.gen_dataset(self.data, self.target_variable)
         self.model_input = self.data_setup.gen_model_input(
-            self.dataset, self.n_timesteps
+            self.dataset, self.n_timesteps, self.drop_missing_ys
         )
         self.X = self.model_input[0]
         self.y = self.model_input[1]
