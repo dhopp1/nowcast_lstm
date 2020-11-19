@@ -1,2 +1,0 @@
-nowcast_lstm
-tests
