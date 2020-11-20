@@ -36,9 +36,9 @@ def gen_dataset(rawdata, target_variable):
 
     data_dict = {}
     for variable in variables:
-        data_dict[variable] = np.array(rawdata.loc[:, variable])
+        data_dict[variable] = rawdata.loc[:, variable].values
         data_dict[variable] = data_dict[variable].reshape((len(data_dict[variable]), 1))
-    target = np.array(rawdata.loc[:, target_variable])
+    target = rawdata.loc[:, target_variable].values
     target = target.reshape((len(target), 1))
     dataset = np.hstack(([data_dict[k] for k in data_dict] + [target]))
     return dataset

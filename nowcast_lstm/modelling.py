@@ -124,7 +124,8 @@ def predict(X, mv_lstm):
 	output:
 		:return: np array: array of predictions
 	"""
-    inpt = torch.tensor(X, dtype=torch.float32)
+    with torch.no_grad():
+        inpt = torch.tensor(X, dtype=torch.float32)
     mv_lstm.init_hidden(inpt.size(0))
     preds = mv_lstm(inpt).view(-1).detach().numpy()
 
