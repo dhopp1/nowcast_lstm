@@ -1,12 +1,5 @@
 import numpy as np
-import pandas as pd
 from pandas.api.types import is_numeric_dtype
-
-
-data = pd.read_csv(
-    "/home/danhopp/dhopp1/UNCTAD/nowcast_data_update/output/2020-08-07_database_tf.csv"
-)
-rawdata = data.loc[:, ["date", "x_world", "x_cn", "bci_jp", "fc_x_de"]]
 
 
 def gen_dataset(rawdata, target_variable):
