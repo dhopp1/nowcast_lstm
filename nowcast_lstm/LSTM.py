@@ -81,8 +81,13 @@ class LSTM:
         self.mv_lstm = []
         self.train_loss = []
 
-    def train(self, quiet=False):
-        "quiet is whether or not to print output of loss during training"
+    def train(self, num_workers=0, shuffle=False, quiet=False):
+        """train the model
+        
+        :num_workers: int: number of workers for multi-process data loading
+        :shuffle: boolean: whether to shuffle data at every epoch
+		:quiet: boolean: whether or not to print the losses in the epoch loop
+        """
         for i in range(self.n_models):
             print(f"Training model {i+1}")
             # instantiate the model
@@ -109,6 +114,8 @@ class LSTM:
                 train_episodes=self.train_episodes,
                 batch_size=self.batch_size,
                 decay=self.decay,
+                num_workers=num_workers,
+                shuffle=shuffle,
                 quiet=quiet,
             )
             self.mv_lstm.append(trained["mv_lstm"])

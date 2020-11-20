@@ -47,7 +47,20 @@ def instantiate_model(
         "criterion": criterion,
         "optimizer": optimizer,
     }
+    
+class Dataset(torch.utils.data.Dataset):
+        def __init__(self, X, y):
+            self.X = X
+            self.y = y
 
+        def __len__(self):
+            return len(self.y)
+
+        def __getitem__(self, index):
+            X = self.X[index, :, :]
+            y = self.y[index]
+
+            return X, y
 
 def train_model(
     X,
@@ -58,6 +71,8 @@ def train_model(
     train_episodes=200,
     batch_size=30,
     decay=0.98,
+    num_workers=0,
+    shuffle=False,
     quiet=False,
 ):
     """Train the network
@@ -71,6 +86,8 @@ def train_model(
 		:train_episodes: int: number of epochs/episodes to train the model
 		:batch_size: int: number of observations per training batch
 		:decay: float: learning rate decay
+        :num_workers: int: number of workers for multi-process data loading
+        :shuffle: boolean: whether to shuffle data at every epoch
 		:quiet: boolean: whether or not to print the losses in the epoch loop
 	
 	output:
@@ -78,6 +95,20 @@ def train_model(
 			:mv_lstm: trained network
 			:train_loss: list of losses per epoch, for informational purposes
 	"""
+
+    # CUDA if available
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda:0" if use_cuda else "cpu")
+    params = {"batch_size": batch_size, "shuffle": shuffle, "num_workers": num_workers}
+
+    # PyTorch dataset
+    data_generator = torch.utils.data.DataLoader(
+        Dataset(
+            torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.float32)
+        ),
+        **params
+    )
+
     train_loss = []  # for plotting train loss
     my_lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
         optimizer=optimizer, gamma=decay
@@ -85,19 +116,15 @@ def train_model(
 
     mv_lstm.train()
     for t in range(train_episodes):
-        for b in range(0, len(X), batch_size):
-            inpt = X[b : b + batch_size, :, :]
-            target = y[b : b + batch_size]
+        for batch_X, batch_y in data_generator:
+            # to GPU
+            batch_X, batch_y = batch_X.to(device), batch_y.to(device)
 
-            x_batch = torch.tensor(inpt, dtype=torch.float32)
-            y_batch = torch.tensor(target, dtype=torch.float32)
-
-            mv_lstm.init_hidden(x_batch.size(0))
-            output = mv_lstm(x_batch)
-            loss = criterion(output.view(-1), y_batch)
+            mv_lstm.init_hidden(batch_X.size(0))
+            output = mv_lstm(batch_X)
+            loss = criterion(output.view(-1), batch_y)
 
             loss.backward()
-
             optimizer.step()
             optimizer.zero_grad()
 
