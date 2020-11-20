@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="nowcast_lstm-dhopp1",
-    version="0.0.1",
+    version="0.0.2",
     author="Daniel Hopp",
     author_email="daniel.hopp@un.org",
     description="Code for running LSTM neural networks on economic data for nowcasting",
