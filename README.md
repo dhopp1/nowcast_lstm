@@ -40,6 +40,13 @@ model.predict(
 # to generate a synthetic data vintage of data
 model.gen_ragged_X(pub_lags, lag)
 
+# save a trained model using dill
+import dill
+dill.dump(model, open("trained_model.pkl", mode="wb"))
+
+# load a previously trained model using dill
+trained_model = dill.load(open("trained_model.pkl", "rb", -1))
+
 ```
 
 ## LSTM parameters
