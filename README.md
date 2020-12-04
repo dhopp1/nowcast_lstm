@@ -1,5 +1,7 @@
 # nowcast_lstm
 **Installation**: `pip install nowcast-lstm-dhopp1`
+<br>
+**Example**: `nowcast_lstm_example.zip` contains a jupyter notebook file with a dataset and full example of usage.
 <br><br>
 [LSTM neural networks](https://en.wikipedia.org/wiki/Long_short-term_memory) have been used for nowcasting [before](https://papers.nips.cc/paper/2015/file/07563a3fe3bbe7e3ba84431ad9d055af-Paper.pdf), combining the strengths of artificial neural networks with a temporal aspect. However their use in nowcasting economic indicators remains limited, no doubt in part due to the difficulty of obtaining results in existing deep learning frameworks. This library seeks to streamline the process of obtaining results in the hopes of expanding the domains to which LSTM can be applied.
 
