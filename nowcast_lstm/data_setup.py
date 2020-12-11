@@ -83,7 +83,7 @@ def gen_ragged_X(X, pub_lags, lag):
 	parameters:
 		:X: numpy array: n x m+1 array, output of `gen_model_input` function, or an instantiated LSTM object, `LSTM().X`
 		:pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
-        :lag: int: simulated periods back. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc.
+        :lag: int: simulated periods back, interpretable as last complete period relative to target period. E.g. -2 = simulating data as it would have been 1 month before target period, i.e. 2 months ago is last complete period. 
 	
 	output:
 		:return: numpy array equivalent in shape to X input, but with trailing edges set to missing/0
