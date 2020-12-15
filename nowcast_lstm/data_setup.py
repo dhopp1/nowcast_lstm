@@ -24,13 +24,15 @@ def estimate_arma(series):
     return arma_model
 
 
-def ragged_fill_series(series, function=np.mean, est_series=None):
+def ragged_fill_series(series, function=np.mean, backup_fill_method=np.mean, est_series=None, fitted_arma=None):
     """Filling in the ragged ends of a series, adhering to the periodicity of the series. If there is only one observation and periodicity cannot be determined, series will be returned unchanged.
 	
 	parameters:
 		:series: list/pandas Series: the series to fill the ragged edges of. Missings should be np.nans
         :function: the function to fill nas with (e.g. np.mean, etc.). Use "ARMA" for ARMA filling
+        :backup_fill_method: function: which function to fill ragged edges with in case ARMA can't be estimated
         :est_series: list/pandas Series: optional, the series to calculate the function on. Should not have nas filled in yet by any method. E.g. a train set. If None, will calculated based on itself.
+        :arma_model: fitted ARMA model if available to avoid reestimating every time in the `gen_ragged_X` function
 	
 	output:
 		:return: pandas Series with filled ragged edges
@@ -50,7 +52,9 @@ def ragged_fill_series(series, function=np.mean, est_series=None):
         fill_indices = [x for x in fill_indices if x in series.index] # cut down on the indices if went too long
         
         if function == "ARMA":
-            fitted_arma = estimate_arma(est_series)
+            # estimate the model if not given
+            if fitted_arma is None:
+                fitted_arma = estimate_arma(est_series)
             # seeing which indices are not missing (for quarterly etc.)
             arma = ARIMA(order=fitted_arma.order) # instantiate model with previously estimated parameters (i.e. on train set)
             arma.set_params(**fitted_arma.get_params())
@@ -61,8 +65,9 @@ def ragged_fill_series(series, function=np.mean, est_series=None):
                 preds = arma.predict(n_periods=int(len(series) - last_nonna))
                 fills = list(y) + list(preds)
                 fills = fills[:len(fill_indices)]
-            except Exception:
-                pass
+            except:
+                fills = list(result[~pd.isna(result)]) + [backup_fill_method(est_series)] * (len(series) - last_nonna)
+                fills = fills[:len(fill_indices)]
             result[fill_indices] = fills
         else:
             fills = list(result[~pd.isna(result)]) + [function(est_series)] * (len(series) - last_nonna)
@@ -85,7 +90,7 @@ def gen_dataset(rawdata, target_variable, fill_na_func=np.mean, fill_ragged_edge
         :fill_na_other_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with filling NAs based on a different dataset (e.g. the train dataset). E.g. `train=LSTM(...)`, `gen_dataset(test_data, target_variable, fill_na_other_df=train.data)`
 	
 	output:
-		:return: numpy array: n x m+1 array
+		:return: numpy array: n x m+1 array. Also the same array with NAs maintained for the `gen_ragged_X` function
 	"""
     
     rawdata = convert_float(rawdata)
@@ -100,6 +105,7 @@ def gen_dataset(rawdata, target_variable, fill_na_func=np.mean, fill_ragged_edge
     )  # features, excluding target variable
     
     # fill NAs with a function
+    for_ragged = rawdata.copy() # needs to be kept for generating ragged data
     for col in rawdata.columns[rawdata.columns != target_variable]: # leave target as NA
         # ragged edges
         rawdata[col] = ragged_fill_series(rawdata[col], function=fill_ragged_edges, est_series=fill_na_df[col])
@@ -109,6 +115,7 @@ def gen_dataset(rawdata, target_variable, fill_na_func=np.mean, fill_ragged_edge
     
     # drop any rows still with missing X data, in case fill_na_func doesn't get full coverage
     rawdata = rawdata.loc[rawdata.loc[:,variables].dropna().index, :].reset_index(drop=True)
+    for_ragged = for_ragged.loc[rawdata.loc[:,variables].dropna().index, :].reset_index(drop=True)
     
     # returning array, target variable at the end
     data_dict = {}
@@ -118,7 +125,17 @@ def gen_dataset(rawdata, target_variable, fill_na_func=np.mean, fill_ragged_edge
     target = rawdata.loc[:, target_variable].values
     target = target.reshape((len(target), 1))
     dataset = np.hstack(([data_dict[k] for k in data_dict] + [target]))
-    return dataset
+    
+    # for ragged 
+    data_dict = {}
+    for variable in variables:
+        data_dict[variable] = for_ragged.loc[:, variable].values
+        data_dict[variable] = data_dict[variable].reshape((len(data_dict[variable]), 1))
+    target = for_ragged.loc[:, target_variable].values
+    target = target.reshape((len(target), 1))
+    for_ragged_dataset = np.hstack(([data_dict[k] for k in data_dict] + [target]))
+    
+    return dataset, for_ragged_dataset
 
 
 def gen_model_input(dataset, n_timesteps, drop_missing_ys=True):
@@ -155,24 +172,42 @@ def gen_model_input(dataset, n_timesteps, drop_missing_ys=True):
     X = np.array(X)
     y = np.array(y)
     if drop_missing_ys:
-        X = X[y != 0.0, :, :]  # delete na ys, no useful training data
-        y = y[y != 0.0]
+        X = X[~pd.isna(y), :, :]  # delete na ys, no useful training data
+        y = y[~pd.isna(y)]
 
     return X, y
 
 
-def gen_ragged_X(X, pub_lags, lag):
+def gen_ragged_X(X, pub_lags, lag, orig_df, target_variable, fill_ragged_edges=np.mean, backup_fill_method=np.mean, fill_na_other_df=None):
     """Produce vintage model inputs given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)
 	
 	parameters:
-		:X: numpy array: n x m+1 array, output of `gen_model_input` function, or an instantiated LSTM object, `LSTM().X`
+		:X: numpy array: n x m+1 array, second output of `gen_model_input` function, `for_ragged_dataset`
 		:pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
         :lag: int: simulated periods back, interpretable as last complete period relative to target period. E.g. -2 = simulating data as it would have been 1 month before target period, i.e. 2 months ago is last complete period. 
+        :orig_df: pandas DataFrame: the original dataframe this dataset came from
+        :target_variable: str: the target variable of this dataset
+        :fill_ragged_edges: function: which function to fill ragged edges with, "ARMA" for ARMA model
+        :backup_fill_method: function: which function to fill ragged edges with in case ARMA can't be estimated
+        :fill_na_other_df: pandas DataFrame: other dataframe from which to calculate the fill NA values, i.e. a training dataset
 	
 	output:
 		:return: numpy array equivalent in shape to X input, but with trailing edges set to missing/0
 	"""
-
+    # to get fill_na values based on either this dataframe or another (training)
+    if fill_na_other_df is None:
+        fill_na_df = convert_float(orig_df)
+    else:
+        fill_na_df = convert_float(fill_na_other_df)
+    fill_na_df = fill_na_df.loc[:, fill_na_df.columns[fill_na_df.columns != target_variable]]
+    
+    # estimating ARMA models just once per variable instead of every observation
+    if fill_ragged_edges == "ARMA":
+        arma_models = []
+        for var in range(X.shape[2]):
+            arma_models = arma_models + [estimate_arma(fill_na_df.iloc[:,var])]
+    
+    # clearing ragged data
     X_ragged = np.array(X)
     for obs in range(X_ragged.shape[0]):  # go through every observation
         for var in range(len(pub_lags)):  # every variable (and its corresponding lag)
@@ -181,6 +216,11 @@ def gen_ragged_X(X, pub_lags, lag):
             ):  # setting correct lags (-lag because input -2 for -2 months, so +2 additional months of lag)
                 X_ragged[
                     obs, X_ragged.shape[1] - ragged, var
-                ] = 0.0  # setting to missing data
+                ] = np.nan  # setting to missing data
+            if fill_ragged_edges == "ARMA":
+                X_ragged[obs, :, var] = ragged_fill_series(pd.Series(X_ragged[obs, :, var]), function=fill_ragged_edges, backup_fill_method=backup_fill_method, est_series=fill_na_df.iloc[:,var], fitted_arma=arma_models[var])
+            else:
+                X_ragged[obs, :, var] = ragged_fill_series(pd.Series(X_ragged[obs, :, var]), function=fill_ragged_edges, est_series=fill_na_df.iloc[:,var])
+            X_ragged[obs, :, var] = pd.Series(X_ragged[obs, :, var]).fillna(backup_fill_method(fill_na_df.iloc[:,var]))
 
     return X_ragged
