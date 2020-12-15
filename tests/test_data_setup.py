@@ -26,18 +26,24 @@ class TestDataSetup(unittest.TestCase):
     def test_gen_dataset(self):
         self.assertTrue(
             (
-                data_setup.gen_dataset(self.x, "target")
-                == np.array([[1, 4, 7], [2, 0, 8], [3, 6, 9]], np.float64)
+                data_setup.gen_dataset(self.x, "target", np.mean)
+                == np.array([[1, 4, 7], [2, 5, 8], [3, 6, 9]], np.float64)
             ).all()
-        )
-
-    def test_gen_model_input(self):
-        result = data_setup.gen_model_input(
-            data_setup.gen_dataset(self.x, "target"), n_timesteps=2
         )
         self.assertTrue(
             (
-                result[0] == np.array([[[1, 4], [2, 0]], [[2, 0], [3, 6]]], np.float64)
+                data_setup.gen_dataset(self.x, "target", lambda x: -999)
+                == np.array([[1, 4, 7], [2, -999, 8], [3, 6, 9]], np.float64)
+            ).all()
+        )    
+
+    def test_gen_model_input(self):
+        result = data_setup.gen_model_input(
+            data_setup.gen_dataset(self.x, "target", np.mean), n_timesteps=2
+        )
+        self.assertTrue(
+            (
+                result[0] == np.array([[[1, 4], [2, 5]], [[2, 5], [3, 6]]], np.float64)
             ).all()
         )
 
