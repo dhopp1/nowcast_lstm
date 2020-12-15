@@ -15,63 +15,74 @@ def convert_float(rawdata):
     ].copy()  # only keep numeric columns
     return rawdata
 
-data = pd.read_csv("/home/danhopp/dhopp1/UNCTAD/nowcast_lstm_working_paper/empirical_comparison/trade/data/data.csv")
-data = data.loc[:, ["x_world", "x_us", "x_de"]]
-def estimate_arma(data):
-    """Estimate ARMA parameters on columns"""
-    arma_models = {}
-    for col in data.columns:
-        series = data[col]
-        series = series[~pd.isna(series)]
-        arma_model = auto_arima(series, start_p=0, d=0, start_q=0, D=0, stationary=True)
-        arma_models[col] = arma_model
-    return arma_models
+
+def estimate_arma(series):
+    """Estimate ARMA parameters on a series"""
+    series = pd.Series(series)
+    series = series[~pd.isna(series)]
+    arma_model = auto_arima(series, start_p=0, d=0, start_q=0, D=0, stationary=True)
+    return arma_model
 
 
-def arma_fill(data, arma_models):
-    """filling ragged edges with ARMA estimations, expects df with nans for missing. If an error, won't fill anything, will be handled by normal na filling technique"""
-    result = data.copy()
-    for var in data.columns:
-        # periodicity of the series, to see which to fill in
-        nonna_bools = ~pd.isna(data[var])
-        nonna_indices = list(nonna_bools.index[nonna_bools]) # existing indices with values
-        # if there is only one nonna observation, can't determine periodicity, don't fill anything
-        if len(nonna_indices) > 1:
-            periodicity = (pd.Series(data[var][~pd.isna(data[var])].index) - (pd.Series(data[var][~pd.isna(data[var])].index)).shift()).mode()[0] # how often data comes (quarterly, monthly, etc.)
-            last_nonna = data.index[data[var].notna()][-1]
-            fill_indices = nonna_indices + [int(nonna_indices[-1] + periodicity*i) for i in range(1,(len(data) - last_nonna))] # indices to be filled in, including only the correct periodicity
-            fill_indices = [x for x in fill_indices if x in data.index] # cut down on the indices if went too long
-            
-             # seeing which indices are not missing (for quarterly etc.)
-            arma = ARIMA(order=arma_models[var].order) # instantiate model with previously estimated parameters (i.e. on train set)
-            arma.set_params(**arma_models[var].get_params())
-            y = data[var][~pd.isna(data[var])] # refit the 
+def ragged_fill_series(series, function=np.mean, est_series=None):
+    """Filling in the ragged ends of a series, adhering to the periodicity of the series. If there is only one observation and periodicity cannot be determined, series will be returned unchanged.
+	
+	parameters:
+		:series: list/pandas Series: the series to fill the ragged edges of. Missings should be np.nans
+        :function: the function to fill nas with (e.g. np.mean, etc.). Use "ARMA" for ARMA filling
+        :est_series: list/pandas Series: optional, the series to calculate the function on. Should not have nas filled in yet by any method. E.g. a train set. If None, will calculated based on itself.
+	
+	output:
+		:return: pandas Series with filled ragged edges
+	"""
+    result = pd.Series(series).copy()
+    if est_series is None:
+        est_series = result.copy()
+        
+    # periodicity of the series, to see which to fill in
+    nonna_bools = ~pd.isna(series)
+    nonna_indices = list(nonna_bools.index[nonna_bools]) # existing indices with values
+    # if there is only one non-na observation, can't determine periodicity, don't fill anything
+    if len(nonna_indices) > 1:
+        periodicity = int((pd.Series(result[~pd.isna(result)].index) - (pd.Series(result[~pd.isna(result)].index)).shift()).mode()[0]) # how often data comes (quarterly, monthly, etc.)
+        last_nonna = result.index[result.notna()][-1]
+        fill_indices = nonna_indices + [int(nonna_indices[-1] + periodicity*i) for i in range(1,(len(series) - last_nonna))] # indices to be filled in, including only the correct periodicity
+        fill_indices = [x for x in fill_indices if x in series.index] # cut down on the indices if went too long
+        
+        if function == "ARMA":
+            fitted_arma = estimate_arma(est_series)
+            # seeing which indices are not missing (for quarterly etc.)
+            arma = ARIMA(order=fitted_arma.order) # instantiate model with previously estimated parameters (i.e. on train set)
+            arma.set_params(**fitted_arma.get_params())
+            y = result[~pd.isna(result)] # refit the model on data
             # can fail if not enough datapoints for order of ARMA process
             try:
                 arma.fit(y)
-                preds = arma.predict(n_periods=int(len(data) - last_nonna))
+                preds = arma.predict(n_periods=int(len(series) - last_nonna))
                 fills = list(y) + list(preds)
                 fills = fills[:len(fill_indices)]
             except Exception:
                 pass
-            result.loc[fill_indices, var] = fills
+            result[fill_indices] = fills
+        else:
+            fills = list(result[~pd.isna(result)]) + [function(est_series)] * (len(series) - last_nonna)
+            fills = fills[:len(fill_indices)]
+            result[fill_indices] = fills
+            
     return result
-
-
-#def fill_ragged_edges(data, method=np.mean):
     
 
-def gen_dataset(rawdata, target_variable, fill_na_func=np.mean, fill_na_other_df=None, fill_ragged_edges=np.mean):
+def gen_dataset(rawdata, target_variable, fill_na_func=np.mean, fill_ragged_edges=np.mean, fill_na_other_df=None):
     """Intermediate step to generate a raw dataset the model will accept
 	Input should be a pandas dataframe of of (n observations) x (m features + 1 target column). Non-numeric columns will be dropped. Missing values should be `np.nan`s.
-	The data should be fed in in the time of the most granular series. E.g. 3 monthly series and 2 quarterly should be given as a monthly dataframe, with NAs for the two intervening months for the quarterly variables. Apply the same logic to yearly  or daily variables (untested).
+	The data should be fed in in the time of the most granular series. E.g. 3 monthly series and 2 quarterly should be given as a monthly dataframe, with NAs for the two intervening months for the quarterly variables. Apply the same logic to yearly or daily variables.
 	
 	parameters:
 		:rawdata: pandas DataFrame: n x m+1 dataframe
         :target_variable: str: name of the target variable column
-        :fill_na_func: function: a column-wise function to replace NAs with (e.g. np.mean, np.nanmedian). Can also be a lambda function for replacing NAs with a scalar, `fill_na_func=lambda x: -999`
-        :fill_na_other_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. F\or use with filling NAs based on a different dataset (e.g. the train dataset). E.g. `train=LSTM(...)`, `gen_dataset(test_data, target_variable, fill_na_other_df=train.data)`
+        :fill_na_func: function: function to replace within-series NAs. Given the column, the function should return a scalar. 
         :fill_ragged_edges: function to replace NAs in ragged edges (data missing at end of series). Pass "ARMA" for ARMA filling
+        :fill_na_other_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with filling NAs based on a different dataset (e.g. the train dataset). E.g. `train=LSTM(...)`, `gen_dataset(test_data, target_variable, fill_na_other_df=train.data)`
 	
 	output:
 		:return: numpy array: n x m+1 array
@@ -79,25 +90,25 @@ def gen_dataset(rawdata, target_variable, fill_na_func=np.mean, fill_na_other_df
     
     rawdata = convert_float(rawdata)
     # to get fill_na values based on either this dataframe or another (training)
-    if fill_na_other_df is not None:
-        fill_na_df = convert_float(fill_na_other_df)
+    if fill_na_other_df is None:
+        fill_na_df = rawdata.copy()
     else:
-        fill_na_df = rawdata
+        fill_na_df = convert_float(fill_na_other_df)        
     
     variables = list(
         rawdata.columns[rawdata.columns != target_variable]
     )  # features, excluding target variable
     
-    # if ARMA filling, keep record of values before filling NAS
-    if fill_ragged_edges == "ARMA":
-        arma_df = rawdata.copy()
-    
-    # fill nas with a function
+    # fill NAs with a function
     for col in rawdata.columns[rawdata.columns != target_variable]: # leave target as NA
-        last_nonna = rawdata.index[rawdata[col].notna()][-1] # last nonna for ragged edges
-        na_mask = pd.isna(rawdata[col])
-        na_mask[last_nonna+1:] = False # don't fill in ragged edges with this method
-        rawdata.loc[na_mask, col] = fill_na_func(fill_na_df[col])
+        # ragged edges
+        rawdata[col] = ragged_fill_series(rawdata[col], function=fill_ragged_edges, est_series=fill_na_df[col])
+        
+        # within-series missing
+        rawdata[col] = rawdata[col].fillna(fill_na_func(fill_na_df[col]))
+    
+    # drop any rows still with missing X data, in case fill_na_func doesn't get full coverage
+    rawdata = rawdata.loc[rawdata.loc[:,variables].dropna().index, :].reset_index(drop=True)
     
     # returning array, target variable at the end
     data_dict = {}

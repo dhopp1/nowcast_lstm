@@ -34,6 +34,8 @@ class TestDataSetup(unittest.TestCase):
 
     def test_gen_dataset(self):
         # fill nas with mean
+        #def gen_dataset(rawdata, target_variable, fill_na_func=lambda x: x.fillna(np.mean(x)), fill_na_other_df=None, fill_ragged_edges=np.mean):
+
         self.assertTrue(
             (
                 data_setup.gen_dataset(self.x, "target", np.mean)
@@ -50,17 +52,23 @@ class TestDataSetup(unittest.TestCase):
         # fill nas with median from another dataframe
         self.assertTrue(
             (
-                data_setup.gen_dataset(self.x, "target", np.nanmedian, fill_na_other_df=self.long_x)
+                data_setup.gen_dataset(self.x, "target", fill_na_func=np.nanmedian, fill_na_other_df=self.long_x)
                 == np.array([[1, 4, 7], [2, 7.5, 8], [3, 6, 9]], np.float64)
             ).all()
         )
-        # don't fill ragged edges
+        # ragged edges mean
         self.assertTrue(
-            np.allclose(
-                data_setup.gen_dataset(self.x_ragged, "target", np.mean),
-                np.array([[1, 4, 7], [2, 5, 8], [np.nan, 6, 9]], np.float64),
-                equal_nan=True
-            )
+            (
+                data_setup.gen_dataset(self.x_ragged, "target", fill_na_func=np.nanmedian, fill_ragged_edges=np.mean, fill_na_other_df=self.long_x)
+                == np.array([[1, 4, 7], [2, 7.5, 8], [4, 6, 9]], np.float64)
+            ).all()
+        )
+        # ragged edges ARMA
+        self.assertTrue(
+            (
+                data_setup.gen_dataset(self.x_ragged, "target", fill_na_func=np.nanmedian, fill_ragged_edges="ARMA", fill_na_other_df=self.long_x).round(0)
+                == np.array([[1, 4, 7], [2, 8, 8], [1, 6, 9]], np.float64)
+            ).all()
         )
         
 
