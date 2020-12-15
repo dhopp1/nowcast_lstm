@@ -2,8 +2,17 @@ import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
 
+def convert_float(rawdata):
+    # converting all columns to float64 if numeric
+    for col in rawdata.columns:
+        if is_numeric_dtype(rawdata[col]):
+            rawdata[col] = rawdata[col].astype("float64")
+    rawdata = rawdata.loc[
+        :, [x == "float64" for x in rawdata.dtypes]
+    ].copy()  # only keep numeric columns
+    return rawdata
 
-def gen_dataset(rawdata, target_variable, fill_na_func=np.mean):
+def gen_dataset(rawdata, target_variable, fill_na_func=np.mean, fill_na_other_df=None):
     """Intermediate step to generate a raw dataset the model will accept
 	Input should be a pandas dataframe of of (n observations) x (m features + 1 target column). Non-numeric columns will be dropped, missing values replaced by the fill_na_func.
 	The data should be fed in in the time of the most granular series. E.g. 3 monthly series and 2 quarterly should be given as a monthly dataframe, with NAs for the two intervening months for the quarterly variables. Apply the same logic to yearly  or daily variables (untested).
@@ -12,25 +21,26 @@ def gen_dataset(rawdata, target_variable, fill_na_func=np.mean):
 		:rawdata: pandas DataFrame: n x m+1 dataframe
         :target_variable: str: name of the target variable column
         :fill_na_func: function: a column-wise function to replace NAs with (e.g. np.mean, np.nanmedian). Can also be a lambda function for replacing NAs with a scalar, `fill_na_func=lambda x: -999`
+        :fill_na_other_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with filling NAs based on a different dataset (e.g. the train dataset). E.g. `train=LSTM(...)`, `gen_dataset(test_data, target_variable, fill_na_other_df=train.data)`
 	
 	output:
 		:return: numpy array: n x m+1 array
 	"""
     
-    # converting all columns to float64 if numeric
-    for col in rawdata.columns:
-        if is_numeric_dtype(rawdata[col]):
-            rawdata[col] = rawdata[col].astype("float64")
-    rawdata = rawdata.loc[
-        :, [x == "float64" for x in rawdata.dtypes]
-    ].copy()  # only keep numeric columns
+    rawdata = convert_float(rawdata)
+    # to get fill_na values based on either this dataframe or another (training)
+    if fill_na_other_df is not None:
+        fill_na_df = convert_float(fill_na_other_df)
+    else:
+        fill_na_df = rawdata
+    
     variables = list(
         rawdata.columns[rawdata.columns != target_variable]
     )  # features, excluding target variable
     
     # fill nas with a function
     for col in rawdata.columns[rawdata.columns != target_variable]: # leave target as NA
-        rawdata.loc[pd.isna(rawdata[col]), col] = fill_na_func(rawdata[col])
+        rawdata.loc[pd.isna(rawdata[col]), col] = fill_na_func(fill_na_df[col])
     
     # returning array, target variable at the end
     data_dict = {}

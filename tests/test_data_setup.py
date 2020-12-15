@@ -24,18 +24,27 @@ class TestDataSetup(unittest.TestCase):
     )
 
     def test_gen_dataset(self):
+        # fill nas with mean
         self.assertTrue(
             (
                 data_setup.gen_dataset(self.x, "target", np.mean)
                 == np.array([[1, 4, 7], [2, 5, 8], [3, 6, 9]], np.float64)
             ).all()
         )
+        # fill nas with scalar, lambda
         self.assertTrue(
             (
                 data_setup.gen_dataset(self.x, "target", lambda x: -999)
                 == np.array([[1, 4, 7], [2, -999, 8], [3, 6, 9]], np.float64)
             ).all()
-        )    
+        )
+        # fill nas with median from another dataframe
+        self.assertTrue(
+            (
+                data_setup.gen_dataset(self.x, "target", np.nanmedian, fill_na_other_df=self.long_x)
+                == np.array([[1, 4, 7], [2, 7.5, 8], [3, 6, 9]], np.float64)
+            ).all()
+        )
 
     def test_gen_model_input(self):
         result = data_setup.gen_model_input(
