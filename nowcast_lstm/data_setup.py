@@ -14,7 +14,7 @@ def convert_float(rawdata):
 
 def gen_dataset(rawdata, target_variable, fill_na_func=np.mean, fill_na_other_df=None):
     """Intermediate step to generate a raw dataset the model will accept
-	Input should be a pandas dataframe of of (n observations) x (m features + 1 target column). Non-numeric columns will be dropped, missing values replaced by the fill_na_func.
+	Input should be a pandas dataframe of of (n observations) x (m features + 1 target column). Non-numeric columns will be dropped. Missing values should be `np.nan`s.
 	The data should be fed in in the time of the most granular series. E.g. 3 monthly series and 2 quarterly should be given as a monthly dataframe, with NAs for the two intervening months for the quarterly variables. Apply the same logic to yearly  or daily variables (untested).
 	
 	parameters:
@@ -40,7 +40,10 @@ def gen_dataset(rawdata, target_variable, fill_na_func=np.mean, fill_na_other_df
     
     # fill nas with a function
     for col in rawdata.columns[rawdata.columns != target_variable]: # leave target as NA
-        rawdata.loc[pd.isna(rawdata[col]), col] = fill_na_func(fill_na_df[col])
+        last_nonna = rawdata.index[rawdata[col].notna()][-1] # last nonna for ragged edges
+        na_mask = pd.isna(rawdata[col])
+        na_mask[last_nonna+1:] = False # don't fill in ragged edges with this method
+        rawdata.loc[na_mask, col] = fill_na_func(fill_na_df[col])
     
     # returning array, target variable at the end
     data_dict = {}

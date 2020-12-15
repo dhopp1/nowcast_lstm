@@ -13,6 +13,15 @@ class TestDataSetup(unittest.TestCase):
             "target": [7, 8, 9],
         }
     )
+    
+    x_ragged = pd.DataFrame(
+        {
+            "date": ["a", "b", "c"],
+            "var1": [1, 2, np.nan],
+            "var2": [4, np.nan, 6],
+            "target": [7, 8, 9],
+        }
+    )
 
     long_x = pd.DataFrame(
         {
@@ -45,6 +54,15 @@ class TestDataSetup(unittest.TestCase):
                 == np.array([[1, 4, 7], [2, 7.5, 8], [3, 6, 9]], np.float64)
             ).all()
         )
+        # don't fill ragged edges
+        self.assertTrue(
+            np.allclose(
+                data_setup.gen_dataset(self.x_ragged, "target", np.mean),
+                np.array([[1, 4, 7], [2, 5, 8], [np.nan, 6, 9]], np.float64),
+                equal_nan=True
+            )
+        )
+        
 
     def test_gen_model_input(self):
         result = data_setup.gen_model_input(
