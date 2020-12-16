@@ -30,20 +30,34 @@ class TestDataSetup(unittest.TestCase):
 
     def test_LSTM_newdata(self):
         new_x = self.x
-        new_x.iloc[1:, 3] = np.nan  # simulating no actuals for this, still able to predict
-        preds = self.model.predict(LSTM.LSTM(data=new_x, target_variable="target", n_timesteps=2).gen_full_model_input())
+        new_x.iloc[
+            1:, 3
+        ] = np.nan  # simulating no actuals for this, still able to predict
+        preds = self.model.predict(
+            LSTM.LSTM(
+                data=new_x, target_variable="target", n_timesteps=2
+            ).gen_full_model_input()
+        )
 
         self.assertEqual(len(preds), 2)
 
     def test_LSTM_multiple_models(self):
-        model2 = LSTM.LSTM(data=self.x, target_variable="target", n_timesteps=2, n_models=3)
+        model2 = LSTM.LSTM(
+            data=self.x, target_variable="target", n_timesteps=2, n_models=3
+        )
         model2.train(quiet=True)
         preds = model2.predict(self.model.X)
 
         self.assertEqual(len(preds), 2)
 
     def test_LSTM_gen_ragged(self):
-        model3 = LSTM.LSTM(data=self.long_x, target_variable="target", n_timesteps=2, fill_na_func=np.nanmedian, fill_ragged_edges_func="ARMA")
+        model3 = LSTM.LSTM(
+            data=self.long_x,
+            target_variable="target",
+            n_timesteps=2,
+            fill_na_func=np.nanmedian,
+            fill_ragged_edges_func="ARMA",
+        )
         result = model3.gen_ragged_X([1, 2], 0)
 
         self.assertTrue(

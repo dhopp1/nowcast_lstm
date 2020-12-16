@@ -153,7 +153,13 @@ def gen_dataset(
     if fill_ragged_edges is None:
         fill_ragged_edges = fill_na_func
 
-    date_series = rawdata[[column for column in rawdata.columns if is_datetime64_any_dtype(rawdata[column])]]
+    date_series = rawdata[
+        [
+            column
+            for column in rawdata.columns
+            if is_datetime64_any_dtype(rawdata[column])
+        ]
+    ]
     rawdata = convert_float(rawdata)
     # to get fill_na values based on either this dataframe or another (training)
     if fill_na_other_df is None:
@@ -223,7 +229,7 @@ def gen_dataset(
         "for_ragged_dataset": for_ragged_dataset,
         "for_full_arma_dataset": for_arma_full,
         "other_dataset": fill_na_other,
-        "date_series":date_series,
+        "date_series": date_series,
     }
 
 
@@ -299,7 +305,7 @@ def gen_ragged_X(
         fill_na_dataset = for_ragged_dataset
     else:
         fill_na_dataset = other_dataset
-        
+
     # if no ragged edges fill provided, just do same as backup method
     if fill_ragged_edges is None:
         fill_ragged_edges = backup_fill_method

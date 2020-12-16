@@ -96,7 +96,7 @@ class LSTM:
         )
         self.X = self.model_input[0]
         self.y = self.model_input[1]
-        
+
         self.ragged_input = self.data_setup.gen_model_input(
             self.for_ragged_dataset, self.n_timesteps, drop_missing_ys=True
         )
@@ -146,16 +146,25 @@ class LSTM:
             self.train_loss.append(trained["train_loss"])
 
     def predict(self, data, only_actuals_obs=False):
+        """Make predictions on a dataframe with same columns and order as the model was trained on, including the target variable.
+	
+    	parameters:
+    		:data: pandas DataFrame: data to predict fitted model on
+            :only_actuals_obs: boolean: whether or not to predict observations without a target actual
+    	
+    	output:
+    		:return: pandas DataFrame of dates and predictions
+    	"""
         dataset = self.data_setup.gen_dataset(
             data,
             self.target_variable,
             self.fill_na_func,
             self.fill_ragged_edges_func,
-            fill_na_other_df=self.data,
-            arma_full_df=data,
+            fill_na_other_df=self.data,  # use training data to calculate fill na means, etc.
+            arma_full_df=data,  # use this data to fit ARMA model on
         )
         na_filled_dataset = dataset["na_filled_dataset"]
-        date_series = self.dataset["date_series"]
+        date_series = dataset["date_series"]
         model_input = self.data_setup.gen_model_input(
             na_filled_dataset, self.n_timesteps, drop_missing_ys=False
         )
@@ -164,31 +173,62 @@ class LSTM:
             y = model_input[1]
         else:
             y = [True] * model_input[0].shape[0]
-        
+
+        # predictions on every model
         preds = []
         for i in range(self.n_models):
             preds.append(self.modelling.predict(X, self.mv_lstm[i]))
         preds = list(np.mean(preds, axis=0))
-        
-        prediction_df = pd.DataFrame({
-                "date":date_series[(len(date_series) - len(preds)):].values.flatten(),
-                "predictions":preds,
-        })
+
+        prediction_df = pd.DataFrame(
+            {
+                "date": date_series[
+                    (len(date_series) - len(preds)) :
+                ].values.flatten(),  # may lose some observations at the beginning depending on n_timeperiods, account for that
+                "predictions": preds,
+            }
+        )
         prediction_df = prediction_df.loc[~pd.isna(y), :].reset_index(drop=True)
         return prediction_df
 
-    def gen_ragged_X(self, pub_lags, lag):
+    def gen_ragged_X(self, pub_lags, lag, data=None):
         """Produce vintage model inputs X given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)
 	
     	parameters:
     		:pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
             :lag: int: simulated periods back. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc.
+            :data: pandas DataFrame: dataframe to generate the ragged datasets on, if none will calculate on training data
     	
     	output:
-    		:return: numpy array equivalent in shape to X input, but with trailing edges set to missing/0
+    		:return: numpy array equivalent in shape to X input, but with trailing edges set to missing/0, ys, and dates
     	"""
-        return self.data_setup.gen_ragged_X(
-            X=self.ragged_X,
+        if data is None:
+            data = self.data
+        dataset = self.data_setup.gen_dataset(
+            data,
+            self.target_variable,
+            self.fill_na_func,
+            self.fill_ragged_edges_func,
+            fill_na_other_df=self.data,
+            arma_full_df=data,
+        )
+        for_ragged_dataset = dataset["for_ragged_dataset"]
+        date_series = dataset["date_series"][
+            ~pd.isna(data[self.target_variable])
+        ].reset_index(
+            drop=True
+        )  # only keep dates where there's a target value
+        model_input = self.data_setup.gen_model_input(
+            for_ragged_dataset, self.n_timesteps, drop_missing_ys=True
+        )
+        X = model_input[0]
+        y = model_input[1]
+        dates = date_series[
+            (len(date_series) - len(y)) :
+        ].values.flatten()  # may lose some observations at the beginning depending on n_timeperiods, account for that
+
+        ragged_X = self.data_setup.gen_ragged_X(
+            X=X,
             pub_lags=pub_lags,
             lag=lag,
             for_ragged_dataset=self.for_ragged_dataset,
@@ -198,10 +238,24 @@ class LSTM:
             other_dataset=self.other_dataset,
             for_full_arma_dataset=self.for_full_arma_dataset,
         )
-        
-    def gen_full_model_input(self):
-        """Generate the full dataset for inference, i.e. don't drop missing ys"""
-        model_input = self.data_setup.gen_model_input(
-            self.na_filled_dataset, self.n_timesteps, drop_missing_ys=False
-        )
-        return model_input[0]
+        return ragged_X, y, dates
+
+    def ragged_preds(self, pub_lags, lag, data=None):
+        """Get predictions on artificial vintages
+	
+    	parameters:
+    		:pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
+            :lag: int: simulated periods back. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc.
+            :data: pandas DataFrame: dataframe to generate the ragged datasets on, if none will calculate on training data
+    	
+    	output:
+    		:return: pandas DataFrame of actuals, predictions, and dates
+    	"""
+        X, y, dates = self.gen_ragged_X(pub_lags, lag, data)
+        # predictions on every model
+        preds = []
+        for i in range(self.n_models):
+            preds.append(self.modelling.predict(X, self.mv_lstm[i]))
+        preds = list(np.mean(preds, axis=0))
+
+        return pd.DataFrame({"date": dates, "actuals": y, "predictions": preds,})
