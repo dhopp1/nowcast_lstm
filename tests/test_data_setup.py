@@ -47,35 +47,35 @@ class TestDataSetup(unittest.TestCase):
 
         self.assertTrue(
             (
-                data_setup.gen_dataset(self.x, "target", np.mean)[0]
+                data_setup.gen_dataset(self.x, "target", np.mean)["na_filled_dataset"]
                 == np.array([[1, 4, 7], [2, 5, 8], [3, 6, 9]], np.float64)
             ).all()
         )
         # fill nas with scalar, lambda
         self.assertTrue(
             (
-                data_setup.gen_dataset(self.x, "target", lambda x: -999)[0]
+                data_setup.gen_dataset(self.x, "target", lambda x: -999)["na_filled_dataset"]
                 == np.array([[1, 4, 7], [2, -999, 8], [3, 6, 9]], np.float64)
             ).all()
         )
         # fill nas with median from another dataframe
         self.assertTrue(
             (
-                data_setup.gen_dataset(self.x, "target", fill_na_func=np.nanmedian, fill_na_other_df=self.long_x)[0]
+                data_setup.gen_dataset(self.x, "target", fill_na_func=np.nanmedian, fill_na_other_df=self.long_x)["na_filled_dataset"]
                 == np.array([[1, 4, 7], [2, 7.5, 8], [3, 6, 9]], np.float64)
             ).all()
         )
         # ragged edges mean
         self.assertTrue(
             (
-                data_setup.gen_dataset(self.x_ragged, "target", fill_na_func=np.nanmedian, fill_ragged_edges=np.mean, fill_na_other_df=self.long_x)[0]
+                data_setup.gen_dataset(self.x_ragged, "target", fill_na_func=np.nanmedian, fill_ragged_edges=np.mean, fill_na_other_df=self.long_x)["na_filled_dataset"]
                 == np.array([[1, 4, 7], [2, 7.5, 8], [4, 6, 9]], np.float64)
             ).all()
         )
         # ragged edges ARMA
         self.assertTrue(
             (
-                data_setup.gen_dataset(self.x_ragged, "target", fill_na_func=np.nanmedian, fill_ragged_edges="ARMA", fill_na_other_df=self.long_x)[0].round(0)
+                data_setup.gen_dataset(self.x_ragged, "target", fill_na_func=np.nanmedian, fill_ragged_edges="ARMA", fill_na_other_df=self.long_x)["na_filled_dataset"].round(0)
                 == np.array([[1, 4, 7], [2, 8, 8], [1, 6, 9]], np.float64)
             ).all()
         )
@@ -84,7 +84,7 @@ class TestDataSetup(unittest.TestCase):
     def test_gen_model_input(self):
         # normal X
         result = data_setup.gen_model_input(
-            data_setup.gen_dataset(self.x, "target", np.mean)[0], n_timesteps=2
+            data_setup.gen_dataset(self.x, "target", np.mean)["na_filled_dataset"], n_timesteps=2
         )
         self.assertTrue(
             (
@@ -93,7 +93,7 @@ class TestDataSetup(unittest.TestCase):
         )
         # missing ys
         result = data_setup.gen_model_input(
-            data_setup.gen_dataset(self.missing_y, "target", np.nanmedian)[0], n_timesteps=2
+            data_setup.gen_dataset(self.missing_y, "target", np.nanmedian)["na_filled_dataset"], n_timesteps=2
         )
         self.assertTrue(
             (
@@ -104,10 +104,10 @@ class TestDataSetup(unittest.TestCase):
         
 
     def test_gen_ragged_X(self):
-        X = data_setup.gen_dataset(self.long_x, "target")[0]
-        X = data_setup.gen_model_input(X, n_timesteps=2)
-        result = data_setup.gen_ragged_X(X[0], [1, 2], 0, self.long_x, "target", fill_ragged_edges=np.nanmedian, backup_fill_method=np.nanmedian)
-
+        ragged_dataset = data_setup.gen_dataset(self.long_x, "target")["for_ragged_dataset"]
+        X = data_setup.gen_model_input(ragged_dataset, n_timesteps=2)
+        result = data_setup.gen_ragged_X(X[0], [1, 2], 0, ragged_dataset, "target", fill_ragged_edges=np.nanmedian, backup_fill_method=np.nanmedian)
+        
         self.assertTrue(
             (
                 result
