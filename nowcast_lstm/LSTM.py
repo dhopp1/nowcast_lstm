@@ -26,7 +26,6 @@ class LSTM:
         :fill_ragged_edges_func: function to replace NAs in ragged edges (data missing at end of series). Pass "ARMA" for ARMA filling
         :fill_na_other_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with filling NAs based on a different dataset (e.g. the train dataset). E.g. `train=LSTM(...)`, `gen_dataset(test_data, target_variable, fill_na_other_df=train.data)`
         :arma_full_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with ARMA filling on a full-series history, rather than just the history present in the train set
-        :drop_missing_ys: boolean: whether or not to filter out missing ys. Set to true when creating training data, false when want to run predictions on data that may not have a y.
         :n_models: int: number of models to train and take the average of for more robust estimates
         :train_episodes: int: number of epochs/episodes to train the model
         :batch_size: int: number of observations per training batch
@@ -48,7 +47,6 @@ class LSTM:
         fill_ragged_edges_func=None,
         fill_na_other_df=None,
         arma_full_df=None,
-        drop_missing_ys=True,
         n_models=1,
         train_episodes=200,
         batch_size=30,
@@ -63,7 +61,7 @@ class LSTM:
         self.data_setup = import_module("nowcast_lstm.data_setup")
         self.modelling = import_module("nowcast_lstm.modelling")
 
-        self.data = data
+        self.data = data.reset_index(drop=True)
         self.target_variable = target_variable
         self.n_timesteps = n_timesteps
 
@@ -83,7 +81,6 @@ class LSTM:
         self.dropout = dropout
         self.criterion = criterion
         self.optimizer = optimizer
-        self.drop_missing_ys = drop_missing_ys
 
         self.dataset = self.data_setup.gen_dataset(
             self.data,
@@ -99,13 +96,13 @@ class LSTM:
         self.other_dataset = self.dataset["other_dataset"]
 
         self.model_input = self.data_setup.gen_model_input(
-            self.na_filled_dataset, self.n_timesteps, self.drop_missing_ys
+            self.na_filled_dataset, self.n_timesteps, drop_missing_ys=True
         )
         self.X = self.model_input[0]
         self.y = self.model_input[1]
         
         self.ragged_input = self.data_setup.gen_model_input(
-            self.for_ragged_dataset, self.n_timesteps, self.drop_missing_ys
+            self.for_ragged_dataset, self.n_timesteps, drop_missing_ys=True
         )
         self.ragged_X = self.ragged_input[0]
 
@@ -180,3 +177,10 @@ class LSTM:
             other_dataset=self.other_dataset,
             for_full_arma_dataset=self.for_full_arma_dataset,
         )
+        
+    def gen_full_model_input(self):
+        """Generate the full dataset for inference, i.e. don't drop missing ys"""
+        model_input = self.data_setup.gen_model_input(
+            self.na_filled_dataset, self.n_timesteps, drop_missing_ys=False
+        )
+        return model_input[0]

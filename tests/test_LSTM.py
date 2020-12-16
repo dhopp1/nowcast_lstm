@@ -13,7 +13,7 @@ class TestDataSetup(unittest.TestCase):
             "target": [7, 8, 9],
         }
     )
-    model = LSTM.LSTM(x, "target", 2)
+    model = LSTM.LSTM(data=x, target_variable="target", n_timesteps=2)
     model.train(quiet=True)
 
     long_x = pd.DataFrame(
@@ -30,8 +30,8 @@ class TestDataSetup(unittest.TestCase):
 
     def test_LSTM_newdata(self):
         new_x = self.x
-        new_x.iloc[1:, 3] = 0.0  # simulating no actuals for this, still able to predict
-        preds = self.model.predict(LSTM.LSTM(data=new_x, target_variable="target", n_timesteps=2, drop_missing_ys=False).X)
+        new_x.iloc[1:, 3] = np.nan  # simulating no actuals for this, still able to predict
+        preds = self.model.predict(LSTM.LSTM(data=new_x, target_variable="target", n_timesteps=2).gen_full_model_input())
 
         self.assertEqual(len(preds), 2)
 

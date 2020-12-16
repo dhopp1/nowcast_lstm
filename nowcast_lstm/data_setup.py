@@ -5,14 +5,15 @@ from pmdarima.arima import auto_arima, ARIMA
 
 
 def convert_float(rawdata):
+    result = rawdata.copy()
     # converting all columns to float64 if numeric
-    for col in rawdata.columns:
-        if is_numeric_dtype(rawdata[col]):
-            rawdata[col] = rawdata[col].astype("float64")
-    rawdata = rawdata.loc[
-        :, [x == "float64" for x in rawdata.dtypes]
+    for col in result.columns:
+        if is_numeric_dtype(result[col]):
+            result[col] = result[col].astype("float64")
+    result = result.loc[
+        :, [x == "float64" for x in result.dtypes]
     ].copy()  # only keep numeric columns
-    return rawdata
+    return result
 
 
 def estimate_arma(series):
@@ -295,6 +296,10 @@ def gen_ragged_X(
         fill_na_dataset = for_ragged_dataset
     else:
         fill_na_dataset = other_dataset
+        
+    # if no ragged edges fill provided, just do same as backup method
+    if fill_ragged_edges is None:
+        fill_ragged_edges = backup_fill_method
 
     # estimating ARMA models just once per variable instead of every observation
     if fill_ragged_edges == "ARMA":
