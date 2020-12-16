@@ -1,5 +1,6 @@
 from importlib import import_module
 import numpy as np
+import pandas as pd
 
 import nowcast_lstm.data_setup
 import nowcast_lstm.modelling
@@ -24,8 +25,6 @@ class LSTM:
         :n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
         :fill_na_func: function: function to replace within-series NAs. Given a column, the function should return a scalar. 
         :fill_ragged_edges_func: function to replace NAs in ragged edges (data missing at end of series). Pass "ARMA" for ARMA filling
-        :fill_na_other_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with filling NAs based on a different dataset (e.g. the train dataset). E.g. `train=LSTM(...)`, `gen_dataset(test_data, target_variable, fill_na_other_df=train.data)`
-        :arma_full_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with ARMA filling on a full-series history, rather than just the history present in the train set
         :n_models: int: number of models to train and take the average of for more robust estimates
         :train_episodes: int: number of epochs/episodes to train the model
         :batch_size: int: number of observations per training batch
@@ -45,8 +44,6 @@ class LSTM:
         n_timesteps,
         fill_na_func=np.nanmean,
         fill_ragged_edges_func=None,
-        fill_na_other_df=None,
-        arma_full_df=None,
         n_models=1,
         train_episodes=200,
         batch_size=30,
@@ -67,8 +64,6 @@ class LSTM:
 
         self.fill_na_func = fill_na_func
         self.fill_ragged_edges_func = fill_ragged_edges_func
-        self.fill_na_other_df = fill_na_other_df
-        self.arma_full_df = arma_full_df
 
         self.train_episodes = train_episodes
         self.n_models = n_models
@@ -87,13 +82,14 @@ class LSTM:
             self.target_variable,
             self.fill_na_func,
             self.fill_ragged_edges_func,
-            self.fill_na_other_df,
-            self.arma_full_df,
+            fill_na_other_df=self.data,
+            arma_full_df=self.data,
         )
         self.na_filled_dataset = self.dataset["na_filled_dataset"]
         self.for_ragged_dataset = self.dataset["for_ragged_dataset"]
         self.for_full_arma_dataset = self.dataset["for_full_arma_dataset"]
         self.other_dataset = self.dataset["other_dataset"]
+        self.date_series = self.dataset["date_series"]
 
         self.model_input = self.data_setup.gen_model_input(
             self.na_filled_dataset, self.n_timesteps, drop_missing_ys=True
@@ -149,12 +145,37 @@ class LSTM:
             self.mv_lstm.append(trained["mv_lstm"])
             self.train_loss.append(trained["train_loss"])
 
-    def predict(self, X):
+    def predict(self, data, only_actuals_obs=False):
+        dataset = self.data_setup.gen_dataset(
+            data,
+            self.target_variable,
+            self.fill_na_func,
+            self.fill_ragged_edges_func,
+            fill_na_other_df=self.data,
+            arma_full_df=data,
+        )
+        na_filled_dataset = dataset["na_filled_dataset"]
+        date_series = self.dataset["date_series"]
+        model_input = self.data_setup.gen_model_input(
+            na_filled_dataset, self.n_timesteps, drop_missing_ys=False
+        )
+        X = model_input[0]
+        if only_actuals_obs:
+            y = model_input[1]
+        else:
+            y = [True] * model_input[0].shape[0]
+        
         preds = []
         for i in range(self.n_models):
             preds.append(self.modelling.predict(X, self.mv_lstm[i]))
-
-        return list(np.mean(preds, axis=0))
+        preds = list(np.mean(preds, axis=0))
+        
+        prediction_df = pd.DataFrame({
+                "date":date_series[(len(date_series) - len(preds)):].values.flatten(),
+                "predictions":preds,
+        })
+        prediction_df = prediction_df.loc[~pd.isna(y), :].reset_index(drop=True)
+        return prediction_df
 
     def gen_ragged_X(self, pub_lags, lag):
         """Produce vintage model inputs X given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)

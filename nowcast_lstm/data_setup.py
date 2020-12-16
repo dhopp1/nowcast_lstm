@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
+from pandas.api.types import is_datetime64_any_dtype
 from pmdarima.arima import auto_arima, ARIMA
 
 
@@ -152,6 +153,7 @@ def gen_dataset(
     if fill_ragged_edges is None:
         fill_ragged_edges = fill_na_func
 
+    date_series = rawdata[[column for column in rawdata.columns if is_datetime64_any_dtype(rawdata[column])]]
     rawdata = convert_float(rawdata)
     # to get fill_na values based on either this dataframe or another (training)
     if fill_na_other_df is None:
@@ -221,6 +223,7 @@ def gen_dataset(
         "for_ragged_dataset": for_ragged_dataset,
         "for_full_arma_dataset": for_arma_full,
         "other_dataset": fill_na_other,
+        "date_series":date_series,
     }
 
 
