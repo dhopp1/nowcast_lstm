@@ -3,6 +3,7 @@ import pandas as pd
 from pandas.api.types import is_numeric_dtype
 from pmdarima.arima import auto_arima, ARIMA
 
+
 def convert_float(rawdata):
     # converting all columns to float64 if numeric
     for col in rawdata.columns:
@@ -18,11 +19,27 @@ def estimate_arma(series):
     """Estimate ARMA parameters on a series"""
     series = pd.Series(series)
     series = series[~pd.isna(series)]
-    arma_model = auto_arima(series, start_p=0, d=0, start_q=0, D=0, stationary=True, suppress_warnings=True, error_action="ignore")
+    arma_model = auto_arima(
+        series,
+        start_p=0,
+        d=0,
+        start_q=0,
+        D=0,
+        stationary=True,
+        suppress_warnings=True,
+        error_action="ignore",
+    )
     return arma_model
 
 
-def ragged_fill_series(series, function=np.nanmean, backup_fill_method=np.nanmean, est_series=None, fitted_arma=None, arma_full_series=None):
+def ragged_fill_series(
+    series,
+    function=np.nanmean,
+    backup_fill_method=np.nanmean,
+    est_series=None,
+    fitted_arma=None,
+    arma_full_series=None,
+):
     """Filling in the ragged ends of a series, adhering to the periodicity of the series. If there is only one observation and periodicity cannot be determined, series will be returned unchanged.
 	
 	parameters:
@@ -39,58 +56,79 @@ def ragged_fill_series(series, function=np.nanmean, backup_fill_method=np.nanmea
     result = pd.Series(series).copy()
     if est_series is None:
         est_series = result.copy()
-        
+
     # periodicity of the series, to see which to fill in
     nonna_bools = ~pd.isna(series)
-    nonna_indices = list(nonna_bools.index[nonna_bools]) # existing indices with values
+    nonna_indices = list(nonna_bools.index[nonna_bools])  # existing indices with values
     # if there is only one non-na observation, can't determine periodicity or position in full series, don't fill anything
     if len(nonna_indices) > 1:
-        periodicity = int((pd.Series(result[~pd.isna(result)].index) - (pd.Series(result[~pd.isna(result)].index)).shift()).mode()[0]) # how often data comes (quarterly, monthly, etc.)
+        periodicity = int(
+            (
+                pd.Series(result[~pd.isna(result)].index)
+                - (pd.Series(result[~pd.isna(result)].index)).shift()
+            ).mode()[0]
+        )  # how often data comes (quarterly, monthly, etc.)
         last_nonna = result.index[result.notna()][-1]
-        fill_indices = nonna_indices + [int(nonna_indices[-1] + periodicity*i) for i in range(1,(len(series) - last_nonna))] # indices to be filled in, including only the correct periodicity
-        fill_indices = [x for x in fill_indices if x in series.index] # cut down on the indices if went too long
-        
+        fill_indices = nonna_indices + [
+            int(nonna_indices[-1] + periodicity * i)
+            for i in range(1, (len(series) - last_nonna))
+        ]  # indices to be filled in, including only the correct periodicity
+        fill_indices = [
+            x for x in fill_indices if x in series.index
+        ]  # cut down on the indices if went too long
+
         if function == "ARMA":
             # estimate the model if not given
             if fitted_arma is None:
                 fitted_arma = estimate_arma(est_series)
             # instantiate model with previously estimated parameters (i.e. on train set)
-            arma = ARIMA(order=fitted_arma.order) 
+            arma = ARIMA(order=fitted_arma.order)
             arma.set_params(**fitted_arma.get_params())
-            
+
             # refit the model on the full series to this point
             if arma_full_series is not None:
                 y = list(arma_full_series[~pd.isna(arma_full_series)])
                 present = list(result[~pd.isna(result)])
                 # limit the series to the point where actuals are
                 end_index = 0
-                for i in range(len(present), len(y)+1):
-                    if (list(y[(i-len(present)):i]) == list(present)):
+                for i in range(len(present), len(y) + 1):
+                    if list(y[(i - len(present)) : i]) == list(present):
                         end_index = i
                 y = y[:end_index]
             # refit model on just this series
-            else: 
-                y = list(result[~pd.isna(result)]) # refit the model on data
+            else:
+                y = list(result[~pd.isna(result)])  # refit the model on data
                 present = y.copy()
             # can fail if not enough datapoints for order of ARMA process
             try:
                 arma.fit(y, error_action="ignore")
                 preds = arma.predict(n_periods=int(len(series) - last_nonna))
                 fills = list(present) + list(preds)
-                fills = fills[:len(fill_indices)]
+                fills = fills[: len(fill_indices)]
             except:
-                fills = list(result[~pd.isna(result)]) + [backup_fill_method(est_series)] * (len(series) - last_nonna)
-                fills = fills[:len(fill_indices)]
+                fills = list(result[~pd.isna(result)]) + [
+                    backup_fill_method(est_series)
+                ] * (len(series) - last_nonna)
+                fills = fills[: len(fill_indices)]
             result[fill_indices] = fills
         else:
-            fills = list(result[~pd.isna(result)]) + [function(est_series)] * (len(series) - last_nonna)
-            fills = fills[:len(fill_indices)]
+            fills = list(result[~pd.isna(result)]) + [function(est_series)] * (
+                len(series) - last_nonna
+            )
+            fills = fills[: len(fill_indices)]
             result[fill_indices] = fills
-            
-    return result
-    
 
-def gen_dataset(rawdata, target_variable, fill_na_func=np.nanmean, fill_ragged_edges=None, fill_na_other_df=None, arma_full_df=None):
+    return result
+
+
+def gen_dataset(
+    rawdata,
+    target_variable,
+    fill_na_func=np.nanmean,
+    fill_ragged_edges=None,
+    fill_na_other_df=None,
+    arma_full_df=None,
+):
     """Intermediate step to generate a raw dataset the model will accept
 	Input should be a pandas dataframe of of (n observations) x (m features + 1 target column). Non-numeric columns will be dropped. Missing values should be `np.nan`s.
 	The data should be fed in in the time of the most granular series. E.g. 3 monthly series and 2 quarterly should be given as a monthly dataframe, with NAs for the two intervening months for the quarterly variables. Apply the same logic to yearly or daily variables.
@@ -112,55 +150,77 @@ def gen_dataset(rawdata, target_variable, fill_na_func=np.nanmean, fill_ragged_e
 	"""
     if fill_ragged_edges is None:
         fill_ragged_edges = fill_na_func
-    
+
     rawdata = convert_float(rawdata)
     # to get fill_na values based on either this dataframe or another (training)
     if fill_na_other_df is None:
         fill_na_df = rawdata.copy()
     else:
-        fill_na_df = convert_float(fill_na_other_df)        
-    
+        fill_na_df = convert_float(fill_na_other_df)
+
     variables = list(
         rawdata.columns[rawdata.columns != target_variable]
     )  # features, excluding target variable
-    
+
     # fill NAs with a function
-    for_ragged = rawdata.copy() # needs to be kept for generating ragged data
-    for col in rawdata.columns[rawdata.columns != target_variable]: # leave target as NA
+    for_ragged = rawdata.copy()  # needs to be kept for generating ragged data
+    for col in rawdata.columns[
+        rawdata.columns != target_variable
+    ]:  # leave target as NA
         # ragged edges
         if arma_full_df is not None:
-            rawdata[col] = ragged_fill_series(rawdata[col], function=fill_ragged_edges, est_series=fill_na_df[col], arma_full_series=arma_full_df[col])
+            rawdata[col] = ragged_fill_series(
+                rawdata[col],
+                function=fill_ragged_edges,
+                est_series=fill_na_df[col],
+                arma_full_series=arma_full_df[col],
+            )
         else:
-            rawdata[col] = ragged_fill_series(rawdata[col], function=fill_ragged_edges, est_series=fill_na_df[col])
-        
+            rawdata[col] = ragged_fill_series(
+                rawdata[col], function=fill_ragged_edges, est_series=fill_na_df[col]
+            )
+
         # within-series missing
         rawdata[col] = rawdata[col].fillna(fill_na_func(fill_na_df[col]))
-    
+
     # drop any rows still with missing X data, in case fill_na_func doesn't get full coverage
-    rawdata = rawdata.loc[rawdata.loc[:,variables].dropna().index, :].reset_index(drop=True)
-    for_ragged = for_ragged.loc[rawdata.loc[:,variables].dropna().index, :].reset_index(drop=True)
-    
+    rawdata = rawdata.loc[rawdata.loc[:, variables].dropna().index, :].reset_index(
+        drop=True
+    )
+    for_ragged = for_ragged.loc[
+        rawdata.loc[:, variables].dropna().index, :
+    ].reset_index(drop=True)
+
     # returning array, target variable at the end
     def order_dataset(rawdata, variables, target_variable):
         data_dict = {}
         for variable in variables:
             data_dict[variable] = rawdata.loc[:, variable].values
-            data_dict[variable] = data_dict[variable].reshape((len(data_dict[variable]), 1))
+            data_dict[variable] = data_dict[variable].reshape(
+                (len(data_dict[variable]), 1)
+            )
         target = rawdata.loc[:, target_variable].values
         target = target.reshape((len(target), 1))
         dataset = np.hstack(([data_dict[k] for k in data_dict] + [target]))
         return dataset
-    
+
     # final datasets
     dataset = order_dataset(rawdata, variables, target_variable)
     for_ragged_dataset = order_dataset(for_ragged, variables, target_variable)
     if arma_full_df is not None:
-        for_arma_full = order_dataset(convert_float(arma_full_df), variables, target_variable)
+        for_arma_full = order_dataset(
+            convert_float(arma_full_df), variables, target_variable
+        )
     else:
         for_arma_full = None
     fill_na_other = order_dataset(fill_na_df, variables, target_variable)
-        
-    return {"na_filled_dataset":dataset, "for_ragged_dataset":for_ragged_dataset, "for_full_arma_dataset":for_arma_full, "other_dataset":fill_na_other}
+
+    return {
+        "na_filled_dataset": dataset,
+        "for_ragged_dataset": for_ragged_dataset,
+        "for_full_arma_dataset": for_arma_full,
+        "other_dataset": fill_na_other,
+    }
 
 
 def gen_model_input(dataset, n_timesteps, drop_missing_ys=True):
@@ -203,7 +263,17 @@ def gen_model_input(dataset, n_timesteps, drop_missing_ys=True):
     return X, y
 
 
-def gen_ragged_X(X, pub_lags, lag, for_ragged_dataset, target_variable, fill_ragged_edges=np.nanmean, backup_fill_method=np.nanmean, other_dataset=None, for_full_arma_dataset=None):
+def gen_ragged_X(
+    X,
+    pub_lags,
+    lag,
+    for_ragged_dataset,
+    target_variable,
+    fill_ragged_edges=np.nanmean,
+    backup_fill_method=np.nanmean,
+    other_dataset=None,
+    for_full_arma_dataset=None,
+):
     """Produce vintage model inputs given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)
 	
 	parameters:
@@ -225,13 +295,13 @@ def gen_ragged_X(X, pub_lags, lag, for_ragged_dataset, target_variable, fill_rag
         fill_na_dataset = for_ragged_dataset
     else:
         fill_na_dataset = other_dataset
-    
+
     # estimating ARMA models just once per variable instead of every observation
     if fill_ragged_edges == "ARMA":
         arma_models = []
         for var in range(X.shape[2]):
-            arma_models = arma_models + [estimate_arma(fill_na_dataset[:,var])]
-    
+            arma_models = arma_models + [estimate_arma(fill_na_dataset[:, var])]
+
     # clearing ragged data
     X_ragged = np.array(X)
     for obs in range(X_ragged.shape[0]):  # go through every observation
@@ -245,11 +315,30 @@ def gen_ragged_X(X, pub_lags, lag, for_ragged_dataset, target_variable, fill_rag
             if fill_ragged_edges == "ARMA":
                 # pass the full ARMA series if available
                 if for_full_arma_dataset is None:
-                    X_ragged[obs, :, var] = ragged_fill_series(pd.Series(X_ragged[obs, :, var]), function=fill_ragged_edges, backup_fill_method=backup_fill_method, est_series=fill_na_dataset[:,var], fitted_arma=arma_models[var])
+                    X_ragged[obs, :, var] = ragged_fill_series(
+                        pd.Series(X_ragged[obs, :, var]),
+                        function=fill_ragged_edges,
+                        backup_fill_method=backup_fill_method,
+                        est_series=fill_na_dataset[:, var],
+                        fitted_arma=arma_models[var],
+                    )
                 else:
-                    X_ragged[obs, :, var] = ragged_fill_series(pd.Series(X_ragged[obs, :, var]), function=fill_ragged_edges, backup_fill_method=backup_fill_method, est_series=fill_na_dataset[:,var], fitted_arma=arma_models[var], arma_full_series=for_full_arma_dataset[:,var])                    
+                    X_ragged[obs, :, var] = ragged_fill_series(
+                        pd.Series(X_ragged[obs, :, var]),
+                        function=fill_ragged_edges,
+                        backup_fill_method=backup_fill_method,
+                        est_series=fill_na_dataset[:, var],
+                        fitted_arma=arma_models[var],
+                        arma_full_series=for_full_arma_dataset[:, var],
+                    )
             else:
-                X_ragged[obs, :, var] = ragged_fill_series(pd.Series(X_ragged[obs, :, var]), function=fill_ragged_edges, est_series=fill_na_dataset[:,var])
-            X_ragged[obs, :, var] = pd.Series(X_ragged[obs, :, var]).fillna(backup_fill_method(fill_na_dataset[:,var]))
+                X_ragged[obs, :, var] = ragged_fill_series(
+                    pd.Series(X_ragged[obs, :, var]),
+                    function=fill_ragged_edges,
+                    est_series=fill_na_dataset[:, var],
+                )
+            X_ragged[obs, :, var] = pd.Series(X_ragged[obs, :, var]).fillna(
+                backup_fill_method(fill_na_dataset[:, var])
+            )
 
     return X_ragged

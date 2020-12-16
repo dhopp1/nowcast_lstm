@@ -47,20 +47,22 @@ def instantiate_model(
         "criterion": criterion,
         "optimizer": optimizer,
     }
-    
+
+
 class Dataset(torch.utils.data.Dataset):
-        def __init__(self, X, y):
-            self.X = X
-            self.y = y
+    def __init__(self, X, y):
+        self.X = X
+        self.y = y
 
-        def __len__(self):
-            return len(self.y)
+    def __len__(self):
+        return len(self.y)
 
-        def __getitem__(self, index):
-            X = self.X[index, :, :]
-            y = self.y[index]
+    def __getitem__(self, index):
+        X = self.X[index, :, :]
+        y = self.y[index]
 
-            return X, y
+        return X, y
+
 
 def train_model(
     X,

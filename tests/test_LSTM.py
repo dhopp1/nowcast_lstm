@@ -31,19 +31,19 @@ class TestDataSetup(unittest.TestCase):
     def test_LSTM_newdata(self):
         new_x = self.x
         new_x.iloc[1:, 3] = 0.0  # simulating no actuals for this, still able to predict
-        preds = self.model.predict(LSTM.LSTM(new_x, "target", 2, False).X)
+        preds = self.model.predict(LSTM.LSTM(data=new_x, target_variable="target", n_timesteps=2, drop_missing_ys=False).X)
 
         self.assertEqual(len(preds), 2)
 
     def test_LSTM_multiple_models(self):
-        model2 = LSTM.LSTM(self.x, "target", 2, n_models=3)
+        model2 = LSTM.LSTM(data=self.x, target_variable="target", n_timesteps=2, n_models=3)
         model2.train(quiet=True)
         preds = model2.predict(self.model.X)
 
         self.assertEqual(len(preds), 2)
 
     def test_LSTM_gen_ragged(self):
-        model3 = LSTM.LSTM(self.long_x, "target", 2)
+        model3 = LSTM.LSTM(data=self.long_x, target_variable="target", n_timesteps=2, fill_na_func=np.nanmedian, fill_ragged_edges_func="ARMA")
         result = model3.gen_ragged_X([1, 2], 0)
 
         self.assertTrue(
@@ -51,12 +51,12 @@ class TestDataSetup(unittest.TestCase):
                 result
                 == np.array(
                     [
-                        [[1.0, 0.0], [0.0, 0.0]],
-                        [[2.0, 0.0], [0.0, 0.0]],
-                        [[3.0, 0.0], [0.0, 0.0]],
-                        [[4.0, 0.0], [0.0, 0.0]],
-                        [[5.0, 0.0], [0.0, 0.0]],
-                        [[6.0, 0.0], [0.0, 0.0]],
+                        [[1.0, 7.5], [4.0, 7.5]],
+                        [[2.0, 7.5], [4.0, 7.5]],
+                        [[3.0, 7.5], [4.0, 7.5]],
+                        [[4.0, 7.5], [4.0, 7.5]],
+                        [[5.0, 7.5], [4.0, 7.5]],
+                        [[6.0, 7.5], [4.0, 7.5]],
                     ]
                 )
             ).all()

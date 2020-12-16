@@ -19,20 +19,24 @@ class LSTM:
     
 	
 	parameters:
-		:data: pandas DataFrame: n x m+1 dataframe
+        :data: pandas DataFrame: n x m+1 dataframe
         :target_variable: str: name of the target var
         :n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
+        :fill_na_func: function: function to replace within-series NAs. Given a column, the function should return a scalar. 
+        :fill_ragged_edges_func: function to replace NAs in ragged edges (data missing at end of series). Pass "ARMA" for ARMA filling
+        :fill_na_other_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with filling NAs based on a different dataset (e.g. the train dataset). E.g. `train=LSTM(...)`, `gen_dataset(test_data, target_variable, fill_na_other_df=train.data)`
+        :arma_full_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with ARMA filling on a full-series history, rather than just the history present in the train set
         :drop_missing_ys: boolean: whether or not to filter out missing ys. Set to true when creating training data, false when want to run predictions on data that may not have a y.
         :n_models: int: number of models to train and take the average of for more robust estimates
         :train_episodes: int: number of epochs/episodes to train the model
         :batch_size: int: number of observations per training batch
         :lr: float: learning rate
-		:decay: float: learning rate decay
+        :decay: float: learning rate decay
         :n_hidden: int: number of hidden states in the network
-		:n_layers: int: number of LSTM layers in the network
-		:dropout: float: dropout rate between the LSTM layers
-		:criterion: torch loss criterion, defaults to MAE
-		:optimizer: torch optimizer, defaults to Adam
+        :n_layers: int: number of LSTM layers in the network
+        :dropout: float: dropout rate between the LSTM layers
+        :criterion: torch loss criterion, defaults to MAE
+        :optimizer: torch optimizer, defaults to Adam
 	"""
 
     def __init__(
@@ -40,6 +44,10 @@ class LSTM:
         data,
         target_variable,
         n_timesteps,
+        fill_na_func=np.nanmean,
+        fill_ragged_edges_func=None,
+        fill_na_other_df=None,
+        arma_full_df=None,
         drop_missing_ys=True,
         n_models=1,
         train_episodes=200,
@@ -58,6 +66,12 @@ class LSTM:
         self.data = data
         self.target_variable = target_variable
         self.n_timesteps = n_timesteps
+
+        self.fill_na_func = fill_na_func
+        self.fill_ragged_edges_func = fill_ragged_edges_func
+        self.fill_na_other_df = fill_na_other_df
+        self.arma_full_df = arma_full_df
+
         self.train_episodes = train_episodes
         self.n_models = n_models
 
@@ -71,12 +85,29 @@ class LSTM:
         self.optimizer = optimizer
         self.drop_missing_ys = drop_missing_ys
 
-        self.dataset = self.data_setup.gen_dataset(self.data, self.target_variable)
+        self.dataset = self.data_setup.gen_dataset(
+            self.data,
+            self.target_variable,
+            self.fill_na_func,
+            self.fill_ragged_edges_func,
+            self.fill_na_other_df,
+            self.arma_full_df,
+        )
+        self.na_filled_dataset = self.dataset["na_filled_dataset"]
+        self.for_ragged_dataset = self.dataset["for_ragged_dataset"]
+        self.for_full_arma_dataset = self.dataset["for_full_arma_dataset"]
+        self.other_dataset = self.dataset["other_dataset"]
+
         self.model_input = self.data_setup.gen_model_input(
-            self.dataset, self.n_timesteps, self.drop_missing_ys
+            self.na_filled_dataset, self.n_timesteps, self.drop_missing_ys
         )
         self.X = self.model_input[0]
         self.y = self.model_input[1]
+        
+        self.ragged_input = self.data_setup.gen_model_input(
+            self.for_ragged_dataset, self.n_timesteps, self.drop_missing_ys
+        )
+        self.ragged_X = self.ragged_input[0]
 
         self.mv_lstm = []
         self.train_loss = []
@@ -138,4 +169,14 @@ class LSTM:
     	output:
     		:return: numpy array equivalent in shape to X input, but with trailing edges set to missing/0
     	"""
-        return self.data_setup.gen_ragged_X(self.X, pub_lags, lag)
+        return self.data_setup.gen_ragged_X(
+            X=self.ragged_X,
+            pub_lags=pub_lags,
+            lag=lag,
+            for_ragged_dataset=self.for_ragged_dataset,
+            target_variable=self.target_variable,
+            fill_ragged_edges=self.fill_ragged_edges_func,
+            backup_fill_method=self.fill_na_func,
+            other_dataset=self.other_dataset,
+            for_full_arma_dataset=self.for_full_arma_dataset,
+        )

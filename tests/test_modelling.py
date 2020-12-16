@@ -17,7 +17,7 @@ class TestModelling(unittest.TestCase):
 
     def test_instantiate_model(self):
         model_input = data_setup.gen_model_input(
-            data_setup.gen_dataset(self.x, "target"), n_timesteps=2
+            data_setup.gen_dataset(self.x, "target")["na_filled_dataset"], n_timesteps=2
         )[
             0
         ]  # first tuple of the function, X
@@ -33,7 +33,7 @@ class TestModelling(unittest.TestCase):
 
     def test_train_model(self):
         model_input = data_setup.gen_model_input(
-            data_setup.gen_dataset(self.x, "target"), n_timesteps=2
+            data_setup.gen_dataset(self.x, "target")["na_filled_dataset"], n_timesteps=2
         )
         result = modelling.instantiate_model(model_input[0], n_timesteps=2)
         model = result["mv_lstm"]
@@ -49,7 +49,7 @@ class TestModelling(unittest.TestCase):
 
     def test_predict(self):
         model_input = data_setup.gen_model_input(
-            data_setup.gen_dataset(self.x, "target"), n_timesteps=2
+            data_setup.gen_dataset(self.x, "target")["na_filled_dataset"], n_timesteps=2
         )
         result = modelling.instantiate_model(model_input[0], n_timesteps=2)
         model = result["mv_lstm"]
