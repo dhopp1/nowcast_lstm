@@ -169,10 +169,7 @@ class LSTM:
             na_filled_dataset, self.n_timesteps, drop_missing_ys=False
         )
         X = model_input[0]
-        if only_actuals_obs:
-            y = model_input[1]
-        else:
-            y = [True] * model_input[0].shape[0]
+        y = model_input[1]
 
         # predictions on every model
         preds = []
@@ -185,10 +182,12 @@ class LSTM:
                 "date": date_series[
                     (len(date_series) - len(preds)) :
                 ].values.flatten(),  # may lose some observations at the beginning depending on n_timeperiods, account for that
+                "actuals": y,
                 "predictions": preds,
             }
         )
-        prediction_df = prediction_df.loc[~pd.isna(y), :].reset_index(drop=True)
+        if only_actuals_obs:
+        	prediction_df = prediction_df.loc[~pd.isna(y), :].reset_index(drop=True)
         return prediction_df
 
     def gen_ragged_X(self, pub_lags, lag, data=None):
