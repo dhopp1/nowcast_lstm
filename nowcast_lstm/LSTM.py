@@ -90,6 +90,7 @@ class LSTM:
         self.for_full_arma_dataset = self.dataset["for_full_arma_dataset"]
         self.other_dataset = self.dataset["other_dataset"]
         self.date_series = self.dataset["date_series"]
+        self.arma_models = self.dataset["arma_models"]
 
         self.model_input = self.data_setup.gen_model_input(
             self.na_filled_dataset, self.n_timesteps, drop_missing_ys=True
@@ -208,8 +209,7 @@ class LSTM:
         dataset = self.data_setup.gen_dataset(
             data,
             self.target_variable,
-            self.fill_na_func,
-            self.fill_ragged_edges_func,
+            self.fill_na_func, # don't need to pass fill_ragged_edges_func because will be overwritten anyway
             fill_na_other_df=self.data,
             arma_full_df=data,
         )
@@ -239,6 +239,7 @@ class LSTM:
             backup_fill_method=self.fill_na_func,
             other_dataset=self.other_dataset,
             for_full_arma_dataset=for_full_arma_dataset,
+            arma_models=self.arma_models,
         )
         return ragged_X, y, dates
 

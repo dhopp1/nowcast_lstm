@@ -120,7 +120,7 @@ def ragged_fill_series(
             fills = fills[: len(fill_indices)]
             result[fill_indices] = fills
 
-    return result
+    return result, fitted_arma
 
 
 def gen_dataset(
@@ -149,6 +149,7 @@ def gen_dataset(
             for_ragged_dataset: dataset with NAs maintained, for knowing periodicity in `gen_ragged_X` function
             for_full_arma_dataset: optional, full dataset for calculating ARMA on full history of series
             other_dataset: other dataset (i.e. train) on which to base NA filling
+            arma_models: list of fitted ARMA models
 	"""
     if fill_ragged_edges is None:
         fill_ragged_edges = fill_na_func
@@ -173,21 +174,24 @@ def gen_dataset(
 
     # fill NAs with a function
     for_ragged = rawdata.copy()  # needs to be kept for generating ragged data
+    arma_models = [] # initializing fitted ARMA models
     for col in rawdata.columns[
         rawdata.columns != target_variable
     ]:  # leave target as NA
         # ragged edges
         if arma_full_df is not None:
-            rawdata[col] = ragged_fill_series(
+            filled_series = ragged_fill_series(
                 rawdata[col],
                 function=fill_ragged_edges,
                 est_series=fill_na_df[col],
                 arma_full_series=arma_full_df[col],
             )
         else:
-            rawdata[col] = ragged_fill_series(
+            filled_series = ragged_fill_series(
                 rawdata[col], function=fill_ragged_edges, est_series=fill_na_df[col]
             )
+        rawdata[col] = filled_series[0]
+        arma_models.append(filled_series[1])
 
         # within-series missing
         rawdata[col] = rawdata[col].fillna(fill_na_func(fill_na_df[col]))
@@ -223,13 +227,16 @@ def gen_dataset(
     else:
         for_arma_full = None
     fill_na_other = order_dataset(fill_na_df, variables, target_variable)
-
+    if arma_models[0] is None:
+        arma_models = None
+        
     return {
         "na_filled_dataset": dataset,
         "for_ragged_dataset": for_ragged_dataset,
         "for_full_arma_dataset": for_arma_full,
         "other_dataset": fill_na_other,
         "date_series": date_series,
+        "arma_models": arma_models,
     }
 
 
@@ -283,6 +290,7 @@ def gen_ragged_X(
     backup_fill_method=np.nanmean,
     other_dataset=None,
     for_full_arma_dataset=None,
+    arma_models=None,
 ):
     """Produce vintage model inputs given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)
 	
@@ -310,12 +318,6 @@ def gen_ragged_X(
     if fill_ragged_edges is None:
         fill_ragged_edges = backup_fill_method
 
-    # estimating ARMA models just once per variable instead of every observation
-    if fill_ragged_edges == "ARMA":
-        arma_models = []
-        for var in range(X.shape[2]):
-            arma_models = arma_models + [estimate_arma(fill_na_dataset[:, var])]
-
     # clearing ragged data
     X_ragged = np.array(X)
     for obs in range(X_ragged.shape[0]):  # go through every observation
@@ -335,7 +337,7 @@ def gen_ragged_X(
                         backup_fill_method=backup_fill_method,
                         est_series=fill_na_dataset[:, var],
                         fitted_arma=arma_models[var],
-                    )
+                    )[0]
                 else:
                     X_ragged[obs, :, var] = ragged_fill_series(
                         pd.Series(X_ragged[obs, :, var]),
@@ -344,13 +346,13 @@ def gen_ragged_X(
                         est_series=fill_na_dataset[:, var],
                         fitted_arma=arma_models[var],
                         arma_full_series=for_full_arma_dataset[:, var],
-                    )
+                    )[0]
             else:
                 X_ragged[obs, :, var] = ragged_fill_series(
                     pd.Series(X_ragged[obs, :, var]),
                     function=fill_ragged_edges,
                     est_series=fill_na_dataset[:, var],
-                )
+                )[0]
             X_ragged[obs, :, var] = pd.Series(X_ragged[obs, :, var]).fillna(
                 backup_fill_method(fill_na_dataset[:, var])
             )
