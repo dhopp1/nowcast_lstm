@@ -203,6 +203,8 @@ class LSTM:
     	"""
         if data is None:
             data = self.data
+        data = data.reset_index(drop=True)
+        
         dataset = self.data_setup.gen_dataset(
             data,
             self.target_variable,
@@ -212,6 +214,7 @@ class LSTM:
             arma_full_df=data,
         )
         for_ragged_dataset = dataset["for_ragged_dataset"]
+        for_full_arma_dataset = dataset["for_full_arma_dataset"]
         date_series = dataset["date_series"][
             ~pd.isna(data[self.target_variable])
         ].reset_index(
@@ -235,7 +238,7 @@ class LSTM:
             fill_ragged_edges=self.fill_ragged_edges_func,
             backup_fill_method=self.fill_na_func,
             other_dataset=self.other_dataset,
-            for_full_arma_dataset=self.for_full_arma_dataset,
+            for_full_arma_dataset=for_full_arma_dataset,
         )
         return ragged_X, y, dates
 
