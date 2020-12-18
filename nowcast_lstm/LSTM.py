@@ -1,6 +1,7 @@
 from importlib import import_module
 import numpy as np
 import pandas as pd
+import datetime
 
 import nowcast_lstm.data_setup
 import nowcast_lstm.modelling
@@ -188,16 +189,18 @@ class LSTM:
             }
         )
         if only_actuals_obs:
-        	prediction_df = prediction_df.loc[~pd.isna(y), :].reset_index(drop=True)
+            prediction_df = prediction_df.loc[~pd.isna(y), :].reset_index(drop=True)
         return prediction_df
 
-    def gen_ragged_X(self, pub_lags, lag, data=None):
+    def gen_ragged_X(self, pub_lags, lag, data=None, start_date=None, end_date=None):
         """Produce vintage model inputs X given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)
 	
     	parameters:
     		:pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
             :lag: int: simulated periods back. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc.
             :data: pandas DataFrame: dataframe to generate the ragged datasets on, if none will calculate on training data
+            :start_date: str in "YYYY-MM-DD" format: start date of generating ragged preds. To save calculation time, i.e. just calculating after testing date instead of all dates
+            :end_date: str in "YYYY-MM-DD" format: end date of generating ragged preds
     	
     	output:
     		:return: numpy array equivalent in shape to X input, but with trailing edges set to missing/0, ys, and dates
@@ -205,11 +208,17 @@ class LSTM:
         if data is None:
             data = self.data
         data = data.reset_index(drop=True)
-        
+
+        # converting format of start and end dates
+        if start_date != None:
+            start_date = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+        if end_date != None:
+            end_date = datetime.datetime.strptime(end_date, "%Y-%m-%d")
+
         dataset = self.data_setup.gen_dataset(
             data,
             self.target_variable,
-            self.fill_na_func, # don't need to pass fill_ragged_edges_func because will be overwritten anyway
+            self.fill_na_func,  # don't need to pass fill_ragged_edges_func because will be overwritten anyway
             fill_na_other_df=self.data,
             arma_full_df=data,
         )
@@ -229,6 +238,12 @@ class LSTM:
             (len(date_series) - len(y)) :
         ].values.flatten()  # may lose some observations at the beginning depending on n_timeperiods, account for that
 
+        # do all if no start/end dates given
+        if start_date is None:
+            start_date = dates[0]
+        if end_date is None:
+            end_date = dates[-1]
+
         ragged_X = self.data_setup.gen_ragged_X(
             X=X,
             pub_lags=pub_lags,
@@ -240,25 +255,33 @@ class LSTM:
             other_dataset=self.other_dataset,
             for_full_arma_dataset=for_full_arma_dataset,
             arma_models=self.arma_models,
+            dates=pd.Series(dates),
+            start_date=start_date,
+            end_date=end_date,
         )
         return ragged_X, y, dates
 
-    def ragged_preds(self, pub_lags, lag, data=None):
+    def ragged_preds(self, pub_lags, lag, data=None, start_date=None, end_date=None):
         """Get predictions on artificial vintages
 	
     	parameters:
     		:pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
             :lag: int: simulated periods back. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc.
             :data: pandas DataFrame: dataframe to generate the ragged datasets on, if none will calculate on training data
+            :start_date: str in "YYYY-MM-DD" format: start date of generating ragged preds. To save calculation time, i.e. just calculating after testing date instead of all dates
+            :end_date: str in "YYYY-MM-DD" format: end date of generating ragged preds
     	
     	output:
     		:return: pandas DataFrame of actuals, predictions, and dates
     	"""
-        X, y, dates = self.gen_ragged_X(pub_lags, lag, data)
+        X, y, dates = self.gen_ragged_X(pub_lags, lag, data, start_date, end_date)
         # predictions on every model
         preds = []
         for i in range(self.n_models):
             preds.append(self.modelling.predict(X, self.mv_lstm[i]))
         preds = list(np.mean(preds, axis=0))
+        pred_df = pd.DataFrame({"date": dates, "actuals": y, "predictions": preds,})
+        # filter rows with no prediction
+        pred_df = pred_df.loc[~pd.isna(pred_df.predictions), :].reset_index(drop=True)
 
-        return pd.DataFrame({"date": dates, "actuals": y, "predictions": preds,})
+        return pred_df

@@ -174,7 +174,7 @@ def gen_dataset(
 
     # fill NAs with a function
     for_ragged = rawdata.copy()  # needs to be kept for generating ragged data
-    arma_models = [] # initializing fitted ARMA models
+    arma_models = []  # initializing fitted ARMA models
     for col in rawdata.columns[
         rawdata.columns != target_variable
     ]:  # leave target as NA
@@ -229,7 +229,7 @@ def gen_dataset(
     fill_na_other = order_dataset(fill_na_df, variables, target_variable)
     if arma_models[0] is None:
         arma_models = None
-        
+
     return {
         "na_filled_dataset": dataset,
         "for_ragged_dataset": for_ragged_dataset,
@@ -291,6 +291,9 @@ def gen_ragged_X(
     other_dataset=None,
     for_full_arma_dataset=None,
     arma_models=None,
+    dates=None,
+    start_date=None,
+    end_date=None,
 ):
     """Produce vintage model inputs given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)
 	
@@ -303,7 +306,10 @@ def gen_ragged_X(
         :fill_ragged_edges: function: which function to fill ragged edges with, "ARMA" for ARMA model
         :backup_fill_method: function: which function to fill ragged edges with in case ARMA can't be estimated. Should be the same as originally passed to `gen_dataset` function
         :other_dataset: numpy array: other dataframe from which to calculate the fill NA values, i.e. a training dataset. Output of `gen_dataset` function, `other_dataset`
-        :for_full_arma_dataset: numpy array: 
+        :for_full_arma_dataset: numpy array: data to fit the ARMA model on
+        :dates: pandas Series: list of dates for the data
+        :start_date: str in "YYYY-MM-DD" format: start date of generating ragged preds. To save calculation time, i.e. just calculating after testing date instead of all dates
+        :end_date: str in "YYYY-MM-DD" format: end date of generating ragged preds
 	
 	output:
 		:return: numpy array equivalent in shape to X input, but with trailing edges set to NA then filled
@@ -318,43 +324,53 @@ def gen_ragged_X(
     if fill_ragged_edges is None:
         fill_ragged_edges = backup_fill_method
 
+    # if no dates given
+    if dates is None:
+        dates = [0] * X.shape[0]
+        start_date = 0
+        end_date = 0
+
     # clearing ragged data
     X_ragged = np.array(X)
     for obs in range(X_ragged.shape[0]):  # go through every observation
-        for var in range(len(pub_lags)):  # every variable (and its corresponding lag)
-            for ragged in range(
-                1, pub_lags[var] + 1 - lag
-            ):  # setting correct lags (-lag because input -2 for -2 months, so +2 additional months of lag)
-                X_ragged[
-                    obs, X_ragged.shape[1] - ragged, var
-                ] = np.nan  # setting to missing data
-            if fill_ragged_edges == "ARMA":
-                # pass the full ARMA series if available
-                if for_full_arma_dataset is None:
-                    X_ragged[obs, :, var] = ragged_fill_series(
-                        pd.Series(X_ragged[obs, :, var]),
-                        function=fill_ragged_edges,
-                        backup_fill_method=backup_fill_method,
-                        est_series=fill_na_dataset[:, var],
-                        fitted_arma=arma_models[var],
-                    )[0]
+        # only do if within desired date range
+        if (dates[obs] >= start_date) & (dates[obs] <= end_date):
+            for var in range(
+                len(pub_lags)
+            ):  # every variable (and its corresponding lag)
+                for ragged in range(
+                    1, pub_lags[var] + 1 - lag
+                ):  # setting correct lags (-lag because input -2 for -2 months, so +2 additional months of lag)
+                    X_ragged[
+                        obs, X_ragged.shape[1] - ragged, var
+                    ] = np.nan  # setting to missing data
+                if fill_ragged_edges == "ARMA":
+                    # pass the full ARMA series if available
+                    if for_full_arma_dataset is None:
+                        X_ragged[obs, :, var] = ragged_fill_series(
+                            pd.Series(X_ragged[obs, :, var]),
+                            function=fill_ragged_edges,
+                            backup_fill_method=backup_fill_method,
+                            est_series=fill_na_dataset[:, var],
+                            fitted_arma=arma_models[var],
+                        )[0]
+                    else:
+                        X_ragged[obs, :, var] = ragged_fill_series(
+                            pd.Series(X_ragged[obs, :, var]),
+                            function=fill_ragged_edges,
+                            backup_fill_method=backup_fill_method,
+                            est_series=fill_na_dataset[:, var],
+                            fitted_arma=arma_models[var],
+                            arma_full_series=for_full_arma_dataset[:, var],
+                        )[0]
                 else:
                     X_ragged[obs, :, var] = ragged_fill_series(
                         pd.Series(X_ragged[obs, :, var]),
                         function=fill_ragged_edges,
-                        backup_fill_method=backup_fill_method,
                         est_series=fill_na_dataset[:, var],
-                        fitted_arma=arma_models[var],
-                        arma_full_series=for_full_arma_dataset[:, var],
                     )[0]
-            else:
-                X_ragged[obs, :, var] = ragged_fill_series(
-                    pd.Series(X_ragged[obs, :, var]),
-                    function=fill_ragged_edges,
-                    est_series=fill_na_dataset[:, var],
-                )[0]
-            X_ragged[obs, :, var] = pd.Series(X_ragged[obs, :, var]).fillna(
-                backup_fill_method(fill_na_dataset[:, var])
-            )
+                X_ragged[obs, :, var] = pd.Series(X_ragged[obs, :, var]).fillna(
+                    backup_fill_method(fill_na_dataset[:, var])
+                )
 
     return X_ragged

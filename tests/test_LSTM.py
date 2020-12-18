@@ -19,7 +19,15 @@ class TestDataSetup(unittest.TestCase):
 
     long_x = pd.DataFrame(
         {
-            "date": ["2019-01-01", "2019-02-01", "2019-03-01", "2019-04-01", "2019-05-01", "2019-06-01", "2019-07-01",],
+            "date": [
+                "2019-01-01",
+                "2019-02-01",
+                "2019-03-01",
+                "2019-04-01",
+                "2019-05-01",
+                "2019-06-01",
+                "2019-07-01",
+            ],
             "var1": [1, 2, 3, 4, 5, 6, 7],
             "var2": [4, np.nan, 6, 7, 8, 9, 10],
             "target": [7, 8, 9, 10, 11, 12, 13],
@@ -35,9 +43,7 @@ class TestDataSetup(unittest.TestCase):
         new_x.iloc[
             1:, 3
         ] = np.nan  # simulating no actuals for this, still able to predict
-        preds = self.model.predict(
-            data=new_x
-        )
+        preds = self.model.predict(data=new_x)
 
         self.assertEqual(len(preds), 2)
 
