@@ -283,5 +283,10 @@ class LSTM:
         pred_df = pd.DataFrame({"date": dates, "actuals": y, "predictions": preds,})
         # filter rows with no prediction
         pred_df = pred_df.loc[~pd.isna(pred_df.predictions), :].reset_index(drop=True)
+        # filter dates
+        if start_date != None:
+            pred_df = pred_df.loc[pred_df.date >= start_date, :].reset_index(drop=True)
+        if end_date != None:
+            pred_df = pred_df.loc[pred_df.date <= end_date, :].reset_index(drop=True)
 
         return pred_df
