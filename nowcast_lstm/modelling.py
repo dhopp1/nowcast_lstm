@@ -1,4 +1,6 @@
 import torch
+import numpy as np
+import pandas as pd
 
 import nowcast_lstm.data_setup
 import nowcast_lstm.mv_lstm
@@ -159,3 +161,97 @@ def predict(X, mv_lstm):
     preds = mv_lstm(inpt).view(-1).detach().numpy()
 
     return preds
+
+def gen_news(model, target_period, old_data, new_data):
+    """Generate the news between two data releases using the method of holding out new data feature by feature and recording the differences in model output
+    Make sure both the old and new dataset have the target period in them to allow for predictions and news generation.
+    
+    parameters:
+        :model: LSTM.LSTM: trained LSTM model
+        :target_period: str: target prediction date
+        :old_data: pd.DataFrame: previous dataset
+        :new_data: pd.DataFrame: new dataset
+    
+    output: Dict
+        :news: dataframe of news contribution of each column with updated data. scaled_news is news scaled to sum to actual prediction delta.
+        :old_pred: prediction on the previous dataset
+        :new_pred: prediction on the new dataset
+        :holdout_discrepency: % difference between the sum of news via the holdout method and the actual prediction delta
+    """
+    data = {}
+    data["old"] = old_data.copy()
+    data["new"] = new_data.copy()
+    data["vintage"] = new_data.copy()
+    # force all dataframes to have same number of rows
+    data["old"] = data["new"].loc[:, ["date"]].merge(data["old"], on="date", how="left")
+
+    # vintage data is new data, but with missings where old had missings. For revisions contribution.
+    data["vintage"] = data["new"].copy()
+    for col in data["vintage"].columns:
+        data["vintage"].loc[pd.isna(data["old"][col]), col] = np.nan
+
+    # predictions on each dataframe, subsequently getting revisions contribution
+    preds = pd.DataFrame(columns=["column", "prediction"])
+    for dataset in ["old", "new", "vintage"]:
+        preds = preds.append(
+            pd.DataFrame(
+                {
+                    "column": dataset,
+                    "prediction": model.predict(data[dataset])
+                    .loc[lambda x: x.date == target_period]
+                    .predictions.values[0],
+                },
+                index=[0],
+            )
+        ).reset_index(drop=True)
+
+    # looping through each column
+    for col in data["vintage"].columns:
+        if col != model.target_variable:
+            # any new values?
+            if not all(
+                list(
+                    (data["vintage"][col] == data["new"][col])
+                    | (pd.isna(data["vintage"][col]) & pd.isna(data["new"][col]))
+                )
+            ):
+                # predictions on new - new value (subtractive method)
+                subtractive = data["new"].copy()
+                subtractive[col] = data["vintage"][col]
+                preds = preds.append(
+                    pd.DataFrame(
+                        {
+                            "column": col,
+                            "prediction": model.predict(subtractive)
+                            .loc[lambda x: x.date == target_period]
+                            .predictions.values[0],
+                        },
+                        index=[0],
+                    )
+                ).reset_index(drop=True)
+
+    # scale the news so it adds to actual delta
+    old_pred = preds.loc[preds.column == "old", "prediction"].values[0]
+    new_pred = preds.loc[preds.column == "new", "prediction"].values[0]
+    revisions = preds.loc[preds.column == "vintage", "prediction"].values[0] - old_pred
+    delta = new_pred - old_pred
+    subtractive = (
+        preds.loc[preds.column == "new", "prediction"].values[0]
+        - preds.loc[~preds.column.isin(["new", "old", "vintage"]), "prediction"]
+    )
+    subtractive = pd.DataFrame(
+        {
+            "column": preds.loc[subtractive.index, "column"].values,
+            "news": subtractive.values,
+        }
+    )
+    news = subtractive.copy()
+    news.loc[len(news), "news"] = revisions
+    news.loc[len(news) - 1, "column"] = "revisions"
+    if delta != 0:
+        diff = news.news.sum() / delta
+        news["scaled_news"] = news.news / diff
+    else:
+        diff = 1
+        news["scaled_news"] = news.news
+    return {"news":news, "old_pred":old_pred, "new_pred":new_pred, "holdout_discrepency":diff}

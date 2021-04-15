@@ -25,7 +25,7 @@ class LSTM:
         :target_variable: str: name of the target var
         :n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
         :fill_na_func: function: function to replace within-series NAs. Given a column, the function should return a scalar. 
-        :fill_ragged_edges_func: function to replace NAs in ragged edges (data missing at end of series). Pass "ARMA" for ARMA filling
+        :fill_ragged_edges_func: function to replace NAs in ragged edges (data missing at end of series). Pass "ARMA" for ARMA filling. Not ARMA filling will be significantly slower as models have to be estimated for each variable to fill ragged edges.
         :n_models: int: number of models to train and take the average of for more robust estimates
         :train_episodes: int: number of epochs/episodes to train the model
         :batch_size: int: number of observations per training batch
@@ -290,3 +290,21 @@ class LSTM:
             pred_df = pred_df.loc[pred_df.date <= end_date, :].reset_index(drop=True)
 
         return pred_df
+
+
+    def gen_news(self, target_period, old_data, new_data):
+        """Generate the news between two data releases using the method of holding out new data feature by feature and recording the differences in model output
+        Make sure both the old and new dataset have the target period in them to allow for predictions and news generation.
+        
+        parameters:
+            :target_period: str: target prediction date
+            :old_data: pd.DataFrame: previous dataset
+            :new_data: pd.DataFrame: new dataset
+        
+        output: Dict
+            :news: dataframe of news contribution of each column with updated data. scaled_news is news scaled to sum to actual prediction delta.
+            :old_pred: prediction on the previous dataset
+            :new_pred: prediction on the new dataset
+            :holdout_discrepency: % difference between the sum of news via the holdout method and the actual prediction delta
+    """
+        return self.modelling.gen_news(self, target_period, old_data, new_data)
