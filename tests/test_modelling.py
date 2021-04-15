@@ -8,7 +8,11 @@ from nowcast_lstm import data_setup, modelling
 class TestModelling(unittest.TestCase):
     x = pd.DataFrame(
         {
-            "date": ["a", "b", "c"],
+            "date": [
+                pd.to_datetime("2020-03-01"),
+                pd.to_datetime("2020-04-01"),
+                pd.to_datetime("2020-05-01"),
+            ],
             "var1": [1, 2, 3],
             "var2": [4, np.nan, 6],
             "target": [7, 8, 9],

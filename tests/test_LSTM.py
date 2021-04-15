@@ -7,7 +7,11 @@ from nowcast_lstm import LSTM
 class TestDataSetup(unittest.TestCase):
     x = pd.DataFrame(
         {
-            "date": ["2019-01-01", "2019-02-01", "2019-03-01"],
+            "date": [
+                pd.to_datetime("2020-03-01"),
+                pd.to_datetime("2020-04-01"),
+                pd.to_datetime("2020-05-01"),
+            ],
             "var1": [1, 2, 3],
             "var2": [4, np.nan, 6],
             "target": [7, 8, 9],
@@ -20,13 +24,13 @@ class TestDataSetup(unittest.TestCase):
     long_x = pd.DataFrame(
         {
             "date": [
-                "2019-01-01",
-                "2019-02-01",
-                "2019-03-01",
-                "2019-04-01",
-                "2019-05-01",
-                "2019-06-01",
-                "2019-07-01",
+                pd.to_datetime("2019-01-01"),
+                pd.to_datetime("2019-02-01"),
+                pd.to_datetime("2019-03-01"),
+                pd.to_datetime("2019-04-01"),
+                pd.to_datetime("2019-05-01"),
+                pd.to_datetime("2019-06-01"),
+                pd.to_datetime("2019-07-01"),
             ],
             "var1": [1, 2, 3, 4, 5, 6, 7],
             "var2": [4, np.nan, 6, 7, 8, 9, 10],

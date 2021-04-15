@@ -154,6 +154,12 @@ def gen_dataset(
     if fill_ragged_edges is None:
         fill_ragged_edges = fill_na_func
 
+    # if there is no date column, raise an error
+    if not (any([is_datetime64_any_dtype(rawdata[x]) for x in rawdata.columns])):
+        raise Exception(
+            "No column of date datatype. Make sure to convert your date column or add parse_dates parameter to pandas.read_csv"
+        )
+
     date_series = rawdata[
         [
             column

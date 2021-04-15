@@ -7,7 +7,11 @@ from nowcast_lstm import data_setup
 class TestDataSetup(unittest.TestCase):
     x = pd.DataFrame(
         {
-            "date": ["a", "b", "c"],
+            "date": [
+                pd.to_datetime("2020-03-01"),
+                pd.to_datetime("2020-04-01"),
+                pd.to_datetime("2020-05-01"),
+            ],
             "var1": [1, 2, 3],
             "var2": [4, np.nan, 6],
             "target": [7, 8, 9],
@@ -16,7 +20,11 @@ class TestDataSetup(unittest.TestCase):
 
     x_ragged = pd.DataFrame(
         {
-            "date": ["a", "b", "c"],
+            "date": [
+                pd.to_datetime("2020-03-01"),
+                pd.to_datetime("2020-04-01"),
+                pd.to_datetime("2020-05-01"),
+            ],
             "var1": [1, 2, np.nan],
             "var2": [4, np.nan, 6],
             "target": [7, 8, 9],
@@ -25,7 +33,15 @@ class TestDataSetup(unittest.TestCase):
 
     long_x = pd.DataFrame(
         {
-            "date": ["a", "b", "c", "c", "c", "c", "c"],
+            "date": [
+                pd.to_datetime("2020-03-01"),
+                pd.to_datetime("2020-04-01"),
+                pd.to_datetime("2020-05-01"),
+                pd.to_datetime("2020-06-01"),
+                pd.to_datetime("2020-07-01"),
+                pd.to_datetime("2020-08-01"),
+                pd.to_datetime("2020-09-01"),
+            ],
             "var1": [1, 2, 3, 4, 5, 6, 7],
             "var2": [4, np.nan, 6, 7, 8, 9, 10],
             "target": [7, 8, 9, 10, 11, 12, 13],
@@ -34,7 +50,15 @@ class TestDataSetup(unittest.TestCase):
 
     missing_y = pd.DataFrame(
         {
-            "date": ["a", "b", "c", "c", "c", "c", "c"],
+            "date": [
+                pd.to_datetime("2020-03-01"),
+                pd.to_datetime("2020-04-01"),
+                pd.to_datetime("2020-05-01"),
+                pd.to_datetime("2020-06-01"),
+                pd.to_datetime("2020-07-01"),
+                pd.to_datetime("2020-08-01"),
+                pd.to_datetime("2020-09-01"),
+            ],
             "var1": [1, 2, 3, 4, 5, 6, 7],
             "var2": [4, np.nan, 6, 7, 8, 9, 10],
             "target": [7, 8, np.nan, 10, 11, np.nan, 13],
