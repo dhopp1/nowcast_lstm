@@ -7,7 +7,10 @@
 
 While neural networks are flexible and this framework may be able to get sensible results on levels, the model architecture was developed to nowcast growth rates of economic indicators. As such training inputs should ideally be stationary and seasonally adjusted.
 
-Further explanation of the background problem can be found in [this UNCTAD research paper](https://unctad.org/system/files/official-document/ser-rp-2018d9_en.pdf). Further explanation and results to be published in an upcoming [UNCTAD](https://unctad.org/) research paper.
+Further explanation of the background problem can be found in [this UNCTAD research paper](https://unctad.org/system/files/official-document/ser-rp-2018d9_en.pdf). Further explanation and results can be found in [this](https://unctad.org/webflyer/economic-nowcasting-long-short-term-memory-artificial-neural-networks-lstm) UNCTAD research paper.
+
+## R wrapper 
+An R wrapper exists for this Python library: [https://github.com/dhopp1/nowcastLSTM](https://github.com/dhopp1/nowcastLSTM). Python and some Python libraries still need to be installed on your system, but full functionality from R can be obtained with the wrapper without any Python knowledge.
 
 
 ## Quick usage
