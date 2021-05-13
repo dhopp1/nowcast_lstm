@@ -1,5 +1,19 @@
 # nowcast_lstm
-**Installation**: `pip install nowcast-lstm`
+**Installation**: from the command line run: 
+
+```
+# you may have pip3 installed, in which case run "pip3 install..."
+pip install dill numpy pandas pmdarima
+
+# pytorch has a little more involved install command, this for windows
+pip install torch==1.8.1+cpu torchvision==0.9.1+cpu torchaudio===0.8.1 -f https://download.pytorch.org/whl/torch_stable.html
+
+# this for linux
+pip install torch==1.8.1+cpu torchvision==0.9.1+cpu torchaudio==0.8.1 -f https://download.pytorch.org/whl/torch_stable.html
+
+# then finally
+pip install nowcast-lstm
+```
 <br>
 **Example**: `nowcast_lstm_example.zip` contains a jupyter notebook file with a dataset and more detailed example of usage.
 <br><br>
