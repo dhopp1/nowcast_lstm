@@ -29,13 +29,13 @@ class LSTM:
         :n_models: int: number of models to train and take the average of for more robust estimates
         :train_episodes: int: number of epochs/episodes to train the model
         :batch_size: int: number of observations per training batch
-        :lr: float: learning rate
         :decay: float: learning rate decay
         :n_hidden: int: number of hidden states in the network
         :n_layers: int: number of LSTM layers in the network
         :dropout: float: dropout rate between the LSTM layers
         :criterion: torch loss criterion, defaults to MAE
         :optimizer: torch optimizer, defaults to Adam
+        :optimizer_parameters: dictionary: list of parameters for optimizer, including learning rate. E.g. {"lr": 1e-2}
 	"""
 
     def __init__(
@@ -48,13 +48,13 @@ class LSTM:
         n_models=1,
         train_episodes=200,
         batch_size=30,
-        lr=1e-2,
         decay=0.98,
         n_hidden=20,
         n_layers=2,
         dropout=0,
         criterion="",
         optimizer="",
+        optimizer_parameters={"lr":1e-2},
     ):
         self.data_setup = import_module("nowcast_lstm.data_setup")
         self.modelling = import_module("nowcast_lstm.modelling")
@@ -70,13 +70,13 @@ class LSTM:
         self.n_models = n_models
 
         self.batch_size = batch_size
-        self.lr = lr
         self.decay = decay
         self.n_hidden = n_hidden
         self.n_layers = n_layers
         self.dropout = dropout
         self.criterion = criterion
         self.optimizer = optimizer
+        self.optimizer_parameters = optimizer_parameters
 
         self.dataset = self.data_setup.gen_dataset(
             self.data,
@@ -123,9 +123,9 @@ class LSTM:
                 n_hidden=self.n_hidden,
                 n_layers=self.n_layers,
                 dropout=self.dropout,
-                lr=self.lr,
                 criterion=self.criterion,
                 optimizer=self.optimizer,
+                optimizer_parameters = self.optimizer_parameters,
             )
             mv_lstm = instantiated["mv_lstm"]
             criterion = instantiated["criterion"]

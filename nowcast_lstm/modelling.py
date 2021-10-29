@@ -12,9 +12,9 @@ def instantiate_model(
     n_hidden=20,
     n_layers=2,
     dropout=0,
-    lr=1e-2,
     criterion="",
     optimizer="",
+    optimizer_parameters={"lr":1e-2},
 ):
     """Create the network, criterion, and optimizer objects necessary for training a model
 	
@@ -42,12 +42,21 @@ def instantiate_model(
     )
     if criterion == "":
         criterion = torch.nn.L1Loss()
+        
+    # for generating the optimizer
+    def generate_optimizer(model, opt_fn = None, opt_kwargs = optimizer_parameters):
+        optimizer = opt_fn(model.parameters(), **opt_kwargs)
+        return optimizer
+        
     if optimizer == "":
-        optimizer = torch.optim.Adam(mv_lstm.parameters(), lr=lr)
+        optim = generate_optimizer(mv_lstm, torch.optim.Adam, optimizer_parameters)
+    else:
+        optim = generate_optimizer(mv_lstm, optimizer, optimizer_parameters)
+        
     return {
         "mv_lstm": mv_lstm,
         "criterion": criterion,
-        "optimizer": optimizer,
+        "optimizer": optim,
     }
 
 

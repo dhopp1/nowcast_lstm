@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 import pandas as pd
+import torch
 
 from nowcast_lstm import data_setup, modelling
 
@@ -33,6 +34,25 @@ class TestModelling(unittest.TestCase):
         )
         self.assertEqual(
             str(type(result["optimizer"])), "<class 'torch.optim.adam.Adam'>"
+        )
+        
+    def test_different_optimizer(self):
+        model_input = data_setup.gen_model_input(
+            data_setup.gen_dataset(self.x, "target")["na_filled_dataset"], n_timesteps=2
+        )[
+            0
+        ]  # first tuple of the function, X
+        result = modelling.instantiate_model(model_input, n_timesteps=2, optimizer=torch.optim.SGD, optimizer_parameters={"lr":1e-3, "weight_decay":0.96})
+
+        self.assertEqual(result["mv_lstm"].n_layers, 2)
+        self.assertEqual(
+            str(type(result["criterion"])), "<class 'torch.nn.modules.loss.L1Loss'>"
+        )
+        self.assertEqual(
+            str(type(result["optimizer"])), "<class 'torch.optim.sgd.SGD'>"
+        )
+        self.assertEqual(
+            str((result["optimizer"])).strip('\n'), "SGD (\nParameter Group 0\n    dampening: 0\n    lr: 0.001\n    momentum: 0\n    nesterov: False\n    weight_decay: 0.96\n)".strip('\n')
         )
 
     def test_train_model(self):
