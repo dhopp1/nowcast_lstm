@@ -1,4 +1,15 @@
 # nowcast_lstm
+
+## Poll
+To help me better understand the potential userbase and determine whether / which languages to develop future wrappers for, please answer the following poll on your programming language usage.
+
+[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I'm%20fine%20with%20the%20Python%20library)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I'm%20fine%20with%20the%20Python%20library/vote)
+[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I'm%20fine%20with%20R%20wrapper)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I'm%20fine%20with%20R%20wrapper/vote)
+[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20Stata%20wrapper)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20Stata%20wrapper/vote)
+[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20MATLAB%20wrapper)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20MATLAB%20wrapper/vote)
+[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20SAS%20wrapper)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20SAS%20wrapper/vote)
+[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20an%20SPSS%20wrapper)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20an%20SPSS%20wrapper/vote)
+
 **Installation**: from the command line run: 
 
 ```
