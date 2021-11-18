@@ -1,15 +1,5 @@
 # nowcast_lstm
 
-## Poll
-To help me better understand the potential userbase and determine whether / which languages to develop future wrappers for, please answer the following poll on your programming language usage.
-
-[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I'm%20fine%20with%20the%20Python%20library)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I'm%20fine%20with%20the%20Python%20library/vote)
-[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I'm%20fine%20with%20R%20wrapper)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I'm%20fine%20with%20R%20wrapper/vote)
-[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20Stata%20wrapper)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20Stata%20wrapper/vote)
-[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20MATLAB%20wrapper)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20MATLAB%20wrapper/vote)
-[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20SAS%20wrapper)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20a%20SAS%20wrapper/vote)
-[![](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20an%20SPSS%20wrapper)](https://api.gh-polls.com/poll/01FMEWVADXFWSN5JCWE0M4W9ZP/I%20would%20only%20use%20the%20methodology%20with%20an%20SPSS%20wrapper/vote)
-
 **Installation**: from the command line run: 
 
 ```
@@ -36,8 +26,8 @@ While neural networks are flexible and this framework may be able to get sensibl
 
 Further explanation of the background problem can be found in [this UNCTAD research paper](https://unctad.org/system/files/official-document/ser-rp-2018d9_en.pdf). Further explanation and results can be found in [this](https://unctad.org/webflyer/economic-nowcasting-long-short-term-memory-artificial-neural-networks-lstm) UNCTAD research paper.
 
-## R and MATLAB wrappers 
-[R](https://github.com/dhopp1/nowcastLSTM) and [MATLAB](https://github.com/dhopp1/nowcast_lstm_matlab) wrappers exist for this Python library. Python and some Python libraries still need to be installed on your system, but full functionality from R and MATLAB can be obtained with the wrapper without any Python knowledge.
+## R, MATLAB, and Julia wrappers 
+[R](https://github.com/dhopp1/nowcastLSTM),  [MATLAB](https://github.com/dhopp1/nowcast_lstm_matlab), and [Julia](https://github.com/dhopp1/NowcastLSTM.jl) wrappers exist for this Python library. Python and some Python libraries still need to be installed on your system, but full functionality from R, MATLAB, and Julia can be obtained with the wrappers without any Python knowledge.
 
 
 ## Quick usage
