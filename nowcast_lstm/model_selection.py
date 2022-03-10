@@ -188,7 +188,9 @@ def variable_selection(
             :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error or "MAE" for mean absolute error. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
             :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors.
     	output:
-    		:return: list[str]: list of best-performing column names
+    		:return: tuple
+                list[str]: list of best-performing column names
+                float: performance metric of these variables (i.e. best performing)
 	"""
 
     data = data.copy()
@@ -215,6 +217,9 @@ def variable_selection(
         lags,
         performance_metric,
     )
+
+    # columns to assess, excluding date column and target variable, used for pub_lags
+    all_columns = list(data.columns[data.columns != target_variable][1:])
 
     # fold train indices
     end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
@@ -303,8 +308,19 @@ def variable_selection(
             # assessing on lags, if applicable
             if (len(pub_lags) > 0) & (len(lags) > 0):
                 for lag in lags:
+                    if col == end_variables[0]:
+                        which_vars = (
+                            end_variables
+                        )  # don't add the initial variable again
+                    else:
+                        which_vars = end_variables + [
+                            col
+                        ]  # end variables + this new one
                     preds_df = model.ragged_preds(
-                        [pub_lags[counter - 1]],
+                        [
+                            pub_lags[i]
+                            for i in [all_columns.index(x) for x in which_vars]
+                        ],  # pub_lags of chosen variables
                         lag,
                         test_set,
                         start_date=first_test_date.strftime("%Y-%m-%d"),
@@ -327,4 +343,4 @@ def variable_selection(
             if performance[-1] < np.min(performance[:-1]):
                 end_variables = end_variables + [col]
 
-    return end_variables
+    return end_variables, np.min(performance)
