@@ -115,7 +115,8 @@ class LSTM:
 		:quiet: boolean: whether or not to print the losses in the epoch loop
         """
         for i in range(self.n_models):
-            print(f"Training model {i+1}")
+            if quiet == False:
+                print(f"Training model {i+1}")
             # instantiate the model
             instantiated = self.modelling.instantiate_model(
                 self.X,
