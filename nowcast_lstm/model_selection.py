@@ -1,18 +1,23 @@
+import math
 import numpy as np
 import pandas as pd
 
 from nowcast_lstm.LSTM import LSTM
 
 
+def AICc(n, n_regressors, SSE):
+    return n * math.log(SSE / n) + (n + n_regressors) / (1 - (n_regressors + 2) / n)
+
+
 def adj_metric(alpha, n, n_regressors, metric):
     """Penalize the performance metric based on the number of observations vs. regressors using a modified R2 penalization term
-	
-	parameters:
-		:alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors
-	
-	output:
-		:return: float: the adjusted/penalized performance metric
-	"""
+
+    parameters:
+            :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors
+
+    output:
+            :return: float: the adjusted/penalized performance metric
+    """
     if alpha == 0.0:
         adjustment = 0.0
     elif (n - n_regressors - 1) > 0:
@@ -26,15 +31,15 @@ def adj_metric(alpha, n, n_regressors, metric):
 
 def gen_folds(data, n_folds=3, init_test_size=0.2):
     """Generate the last training indices for rolling folds. The size of successive test sets is reduced incrementally by init_test_size / n_folds.
-    	
-    	parameters:
-    		:data: pandas DataFrame: data, ordered temporally from earliest observation to latest
-            :n_folds: int: how many folds to produce
-            :init_test_size: float: what proportion of the data to use for testing at the first fold
-    	
-    	output:
-    		:return: list[int]: the last training indices of the folds
-	"""
+
+    parameters:
+            :data: pandas DataFrame: data, ordered temporally from earliest observation to latest
+        :n_folds: int: how many folds to produce
+        :init_test_size: float: what proportion of the data to use for testing at the first fold
+
+    output:
+            :return: list[int]: the last training indices of the folds
+    """
     test_size_step = init_test_size / n_folds
 
     end_train_indices = []
@@ -98,6 +103,11 @@ def univariate_order(
 
         for fold in range(n_folds):
             train = data.loc[: end_train_indices[fold], ["date", target_variable, col]]
+
+            n_obs = len(
+                train.loc[~pd.isna(train[target_variable]), :].reset_index(drop=True)
+            )  # only count non-missing target variables as an observation for the metric penalty
+
             # first date in the test set
             first_test_date = data.iloc[end_train_indices[fold] + 1, 0]
 
@@ -129,7 +139,14 @@ def univariate_order(
             actuals = preds_df.actuals
             preds = preds_df.predictions
 
-            performance[col] = performance[col] + [performance_metric(preds, actuals)]
+            if performance_metric == "AICc":
+                performance[col] = performance[col] + [
+                    AICc(n_obs, 1, np.sum((preds - actuals) ** 2))
+                ]
+            else:
+                performance[col] = performance[col] + [
+                    performance_metric(preds, actuals)
+                ]
 
             # assessing on lags, if applicable
             if (len(pub_lags) > 0) & (len(lags) > 0):
@@ -142,9 +159,15 @@ def univariate_order(
                     )
                     actuals = preds_df.actuals
                     preds = preds_df.predictions
-                    performance[col] = performance[col] + [
-                        performance_metric(preds, actuals)
-                    ]
+
+                    if performance_metric == "AICc":
+                        performance[col] = performance[col] + [
+                            AICc(n_obs, 1, np.sum((preds - actuals) ** 2))
+                        ]
+                    else:
+                        performance[col] = performance[col] + [
+                            performance_metric(preds, actuals)
+                        ]
 
     # getting average perforomance over the folds
     for key in performance.keys():
@@ -178,20 +201,20 @@ def variable_selection(
     alpha=0.0,
 ):
     """Pick best-performing variables for a given set of hyperparameters
-    	
-    	parameters:
-    		All parameters up to `optimizer_parameters` exactly the same as for any LSTM() model
-            :n_folds: int: how many folds for rolling fold validation to do
-            :init_test_size: float: ϵ [0,1]. What proportion of the data to use for testing at the first fold
-            :pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable. Leave empty to pick variables only on complete information, no synthetic vintages.
-        	:lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
-            :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error or "MAE" for mean absolute error. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
-            :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors.
-    	output:
-    		:return: tuple
-                list[str]: list of best-performing column names
-                float: performance metric of these variables (i.e. best performing)
-	"""
+
+    parameters:
+            All parameters up to `optimizer_parameters` exactly the same as for any LSTM() model
+        :n_folds: int: how many folds for rolling fold validation to do
+        :init_test_size: float: ϵ [0,1]. What proportion of the data to use for testing at the first fold
+        :pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable. Leave empty to pick variables only on complete information, no synthetic vintages.
+            :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
+        :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error or "MAE" for mean absolute error. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
+        :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors.
+    output:
+            :return: tuple
+            list[str]: list of best-performing column names
+            float: performance metric of these variables (i.e. best performing)
+    """
 
     data = data.copy()
 
@@ -299,19 +322,27 @@ def variable_selection(
             actuals = preds_df.actuals
             preds = preds_df.predictions
 
-            col_performance.append(
-                adj_metric(
-                    alpha, n_obs, len(end_variables), performance_metric(preds, actuals)
+            if performance_metric == "AICc":
+                col_performance.append(
+                    AICc(n_obs, len(end_variables), np.sum((preds - actuals) ** 2))
                 )
-            )
+            else:
+                col_performance.append(
+                    adj_metric(
+                        alpha,
+                        n_obs,
+                        len(end_variables),
+                        performance_metric(preds, actuals),
+                    )
+                )
 
             # assessing on lags, if applicable
             if (len(pub_lags) > 0) & (len(lags) > 0):
                 for lag in lags:
                     if col == end_variables[0]:
                         which_vars = (
-                            end_variables
-                        )  # don't add the initial variable again
+                            end_variables  # don't add the initial variable again
+                        )
                     else:
                         which_vars = end_variables + [
                             col
@@ -327,14 +358,23 @@ def variable_selection(
                     )
                     actuals = preds_df.actuals
                     preds = preds_df.predictions
-                    col_performance.append(
-                        adj_metric(
-                            alpha,
-                            n_obs,
-                            len(end_variables),
-                            performance_metric(preds, actuals),
+                    if performance_metric == "AICc":
+                        col_performance.append(
+                            AICc(
+                                n_obs,
+                                len(end_variables),
+                                np.sum((preds - actuals) ** 2),
+                            )
                         )
-                    )
+                    else:
+                        col_performance.append(
+                            adj_metric(
+                                alpha,
+                                n_obs,
+                                len(end_variables),
+                                performance_metric(preds, actuals),
+                            )
+                        )
 
         performance.append(np.nanmean(col_performance))
 
