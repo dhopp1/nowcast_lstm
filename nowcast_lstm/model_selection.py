@@ -418,7 +418,7 @@ def hyperparameter_tuning(
         :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
         :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error or "MAE" for mean absolute error, "AICc" for corrected Akaike Information Criterion. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
     output:
-            :return: Pandas DataFrame: hyper parameters sorted by best-performing model to least
+            :return: Pandas DataFrame: hyperparameters sorted by best-performing model to least
     """
 
     data = data.copy()
@@ -666,3 +666,137 @@ def hyperparameter_tuning(
         results = results.sort_values(["performance"]).reset_index(drop=True)
 
         return results
+    
+    
+def select_model(
+    data,
+    target_variable,
+    n_models=1,
+    n_timesteps_grid=[12],
+    fill_na_func_grid=[np.nanmean],
+    fill_ragged_edges_func_grid=[np.nanmean],
+    train_episodes_grid=[200],
+    batch_size_grid=[50],
+    decay_grid=[0.98],
+    n_hidden_grid=[20],
+    n_layers_grid=[2],
+    dropout_grid=[0],
+    criterion_grid=[""],
+    optimizer_grid=[""],
+    optimizer_parameters_grid=[{"lr": 1e-2}],
+    n_folds=1,
+    init_test_size=0.2,
+    pub_lags=[],
+    lags=[],
+    performance_metric="RMSE",
+    alpha=0.0,
+):
+    """Pick best-performing hyperparameters and variables for a given dataset. Given all permutations of hyperparameters (k), and p variables in the data,
+    this function will run k * p * 2 models. This can take a very long time. To cut down on this time, run it with a highly reduced hyperparameter grid,
+    i.e., a very small k, then record the selected variables, then run the `hyperparameter_tuning` function with these selected varaibles
+    with a much more detailed grid.
+
+    parameters:
+        All parameters up to `optimizer_parameters` exactly the same as for any LSTM() model, provide a list with the values to check
+        :n_folds: int: how many folds for rolling fold validation to do
+        :init_test_size: float: ϵ [0,1]. What proportion of the data to use for testing at the first fold
+        :pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable. Leave empty to pick variables only on complete information, no synthetic vintages.
+        :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
+        :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error or "MAE" for mean absolute error, "AICc" for corrected Akaike Information Criterion. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
+        :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors.
+    output:
+            :return: Pandas DataFrame: hyperparameters and variables sorted by best-performing model to least
+    """
+    performance = []
+    variables = []
+    hyperparams = []
+    
+    counter = 0
+    n_runs = np.prod(
+        [
+            len(x)
+            for x in [
+                n_timesteps_grid,
+                fill_na_func_grid,
+                fill_ragged_edges_func_grid,
+                train_episodes_grid,
+                batch_size_grid,
+                decay_grid,
+                n_hidden_grid,
+                n_layers_grid,
+                dropout_grid,
+                criterion_grid,
+                optimizer_grid,
+                optimizer_parameters_grid,
+            ]
+        ]
+    )
+    
+    for i in [0]:  # for some reason first loop not working
+        for fill_na_func in fill_na_func_grid:
+            for n_timesteps in n_timesteps_grid:
+                for fill_ragged_edges_func in fill_ragged_edges_func_grid:
+                    for train_episodes in train_episodes_grid:
+                        for batch_size in batch_size_grid:
+                            for decay in decay_grid:
+                                for n_hidden in n_hidden_grid:
+                                    for n_layers in n_layers_grid:
+                                        for dropout in dropout_grid:
+                                            for criterion in criterion_grid:
+                                                for optimizer in optimizer_grid:
+                                                    for (
+                                                        optimizer_parameters
+                                                    ) in optimizer_parameters_grid:
+                                                        print(
+                                                            f"tuning: {counter} / {n_runs}"
+                                                        )
+                                                        counter += 1
+                                                        
+                                                        selected_variables, run_performance = variable_selection(
+                                                            data,
+                                                            target_variable,
+                                                            n_timesteps,
+                                                            fill_na_func,
+                                                            fill_ragged_edges_func,
+                                                            n_models,
+                                                            train_episodes,
+                                                            batch_size,
+                                                            decay,
+                                                            n_hidden,
+                                                            n_layers,
+                                                            dropout,
+                                                            criterion,
+                                                            optimizer,
+                                                            optimizer_parameters,
+                                                            n_folds,
+                                                            init_test_size,
+                                                            pub_lags,
+                                                            lags,
+                                                            performance_metric,
+                                                            alpha,
+                                                        )
+                                                        
+                                                        # dict of params in model
+                                                        tmp_end_params = {
+                                                            "n_models": n_models,
+                                                            "n_timesteps": n_timesteps,
+                                                            "fill_na_func": fill_na_func,
+                                                            "fill_ragged_edges_func": fill_ragged_edges_func,
+                                                            "train_episodes": train_episodes,
+                                                            "batch_size": batch_size,
+                                                            "decay": decay,
+                                                            "n_hidden": n_hidden,
+                                                            "n_layers": n_layers,
+                                                            "dropout": dropout,
+                                                            "criterion": criterion,
+                                                            "optimizer": optimizer,
+                                                            "optimizer_parameters": optimizer_parameters,
+                                                        }
+                                                        
+                                                        hyperparams.append(tmp_end_params)
+                                                        performance.append(run_performance)
+                                                        variables.append(selected_variables)
+                                                        
+
+    results = pd.DataFrame({"variables":variables, "hyperparameters":hyperparams, "performance":performance}).sort_values(["performance"]).reset_index(drop=True)
+    return results
