@@ -384,3 +384,285 @@ def variable_selection(
                 end_variables = end_variables + [col]
 
     return end_variables, np.min(performance)
+
+
+def hyperparameter_tuning(
+    data,
+    target_variable,
+    n_models=1,
+    n_timesteps_grid=[6, 12],
+    fill_na_func_grid=[np.nanmean],
+    fill_ragged_edges_func_grid=[np.nanmean],
+    train_episodes_grid=[50, 100, 200],
+    batch_size_grid=[50, 100, 200],
+    decay_grid=[0.98],
+    n_hidden_grid=[10, 20, 40],
+    n_layers_grid=[1, 2, 4],
+    dropout_grid=[0],
+    criterion_grid=[""],
+    optimizer_grid=[""],
+    optimizer_parameters_grid=[{"lr": 1e-2}],
+    n_folds=1,
+    init_test_size=0.2,
+    pub_lags=[],
+    lags=[],
+    performance_metric="RMSE",
+):
+    """Pick best-performing hyperparameters for a given dataset. n_timesteps_grid has default grid for predicting quarterly variable with monthly series, may have to change per use case. E.g. [12,24] for a yearly target with monthly indicators.
+
+    parameters:
+        All parameters up to `optimizer_parameters` exactly the same as for any LSTM() model, provide a list with the values to check
+        :n_folds: int: how many folds for rolling fold validation to do
+        :init_test_size: float: ϵ [0,1]. What proportion of the data to use for testing at the first fold
+        :pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable. Leave empty to pick variables only on complete information, no synthetic vintages.
+        :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
+        :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error or "MAE" for mean absolute error, "AICc" for corrected Akaike Information Criterion. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
+    output:
+            :return: Pandas DataFrame: hyper parameters sorted by best-performing model to least
+    """
+
+    data = data.copy()
+    
+    alpha = 0.0 # legacy to work with same variable selection code
+
+    # fold train indices
+    end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
+
+    # defining RMSE and MAE
+    if performance_metric == "RMSE":
+
+        def performance_metric(preds, actuals):
+            return np.sqrt(np.nanmean((preds - actuals) ** 2))
+
+    elif performance_metric == "MAE":
+
+        def performance_metric(preds, actuals):
+            return np.nanmean(np.abs(preds - actuals))
+
+    # running list of hyperparameters
+    end_params = []
+    performance = []  # storage of each run's performance
+
+    counter = 0
+    n_runs = np.prod(
+        [
+            len(x)
+            for x in [
+                n_timesteps_grid,
+                fill_na_func_grid,
+                fill_ragged_edges_func_grid,
+                train_episodes_grid,
+                batch_size_grid,
+                decay_grid,
+                n_hidden_grid,
+                n_layers_grid,
+                dropout_grid,
+                criterion_grid,
+                optimizer_grid,
+                optimizer_parameters_grid,
+            ]
+        ]
+    )
+    for i in [0]:  # for some reason first loop not working
+        for fill_na_func in fill_na_func_grid:
+            for n_timesteps in n_timesteps_grid:
+                for fill_ragged_edges_func in fill_ragged_edges_func_grid:
+                    for train_episodes in train_episodes_grid:
+                        for batch_size in batch_size_grid:
+                            for decay in decay_grid:
+                                for n_hidden in n_hidden_grid:
+                                    for n_layers in n_layers_grid:
+                                        for dropout in dropout_grid:
+                                            for criterion in criterion_grid:
+                                                for optimizer in optimizer_grid:
+                                                    for (
+                                                        optimizer_parameters
+                                                    ) in optimizer_parameters_grid:
+                                                        print(
+                                                            f"tuning: {counter} / {n_runs}"
+                                                        )
+                                                        counter += 1
+
+                                                        run_performance = (
+                                                            []
+                                                        )  # storage of all fold/vintage performances
+
+                                                        for fold in range(n_folds):
+                                                            train = data.loc[
+                                                                : end_train_indices[
+                                                                    fold
+                                                                ],
+                                                                :,
+                                                            ]
+
+                                                            n_obs = len(
+                                                                train.loc[
+                                                                    ~pd.isna(
+                                                                        train[
+                                                                            target_variable
+                                                                        ]
+                                                                    ),
+                                                                    :,
+                                                                ].reset_index(drop=True)
+                                                            )  # only count non-missing target variables as an observation for the metric penalty
+
+                                                            # first date in the test set
+                                                            first_test_date = data.iloc[
+                                                                end_train_indices[fold]
+                                                                + 1,
+                                                                0,
+                                                            ]
+
+                                                            model = LSTM(
+                                                                train,
+                                                                target_variable,
+                                                                n_timesteps,
+                                                                fill_na_func,
+                                                                fill_ragged_edges_func,
+                                                                n_models,
+                                                                train_episodes,
+                                                                batch_size,
+                                                                decay,
+                                                                n_hidden,
+                                                                n_layers,
+                                                                dropout,
+                                                                criterion,
+                                                                optimizer,
+                                                                optimizer_parameters,
+                                                            )
+                                                            model.train(quiet=True)
+
+                                                            # assess on full data performance for all cases
+                                                            test_set = data.copy()
+                                                            preds_df = model.predict(
+                                                                test_set,
+                                                                only_actuals_obs=True,
+                                                            )
+                                                            preds_df = preds_df.loc[
+                                                                preds_df.iloc[:, 0]
+                                                                >= first_test_date,
+                                                                :,
+                                                            ].reset_index(drop=True)
+                                                            actuals = preds_df.actuals
+                                                            preds = preds_df.predictions
+
+                                                            if (
+                                                                performance_metric
+                                                                == "AICc"
+                                                            ):
+                                                                run_performance.append(
+                                                                    AICc(
+                                                                        n_obs,
+                                                                        len(
+                                                                            data.columns
+                                                                        )
+                                                                        - 2,  # minus two for date column and target variable column
+                                                                        np.sum(
+                                                                            (
+                                                                                preds
+                                                                                - actuals
+                                                                            )
+                                                                            ** 2
+                                                                        ),
+                                                                    )
+                                                                )
+                                                            else:
+                                                                run_performance.append(
+                                                                    adj_metric(
+                                                                        alpha,
+                                                                        n_obs,
+                                                                        len(
+                                                                            data.columns
+                                                                        )
+                                                                        - 2,  # minus two for date column and target variable column
+                                                                        performance_metric(
+                                                                            preds,
+                                                                            actuals,
+                                                                        ),
+                                                                    )
+                                                                )
+
+                                                            # assessing on lags, if applicable
+                                                            if (len(pub_lags) > 0) & (
+                                                                len(lags) > 0
+                                                            ):
+                                                                for lag in lags:
+                                                                    preds_df = model.ragged_preds(
+                                                                        pub_lags,
+                                                                        lag,
+                                                                        test_set,
+                                                                        start_date=first_test_date.strftime(
+                                                                            "%Y-%m-%d"
+                                                                        ),
+                                                                    )
+                                                                    actuals = (
+                                                                        preds_df.actuals
+                                                                    )
+                                                                    preds = (
+                                                                        preds_df.predictions
+                                                                    )
+                                                                    if (
+                                                                        performance_metric
+                                                                        == "AICc"
+                                                                    ):
+                                                                        run_performance.append(
+                                                                            AICc(
+                                                                                n_obs,
+                                                                                len(
+                                                                                    data.columns
+                                                                                )
+                                                                                - 2,  # minus two for date column and target variable column
+                                                                                np.sum(
+                                                                                    (
+                                                                                        preds
+                                                                                        - actuals
+                                                                                    )
+                                                                                    ** 2
+                                                                                ),
+                                                                            )
+                                                                        )
+                                                                    else:
+                                                                        run_performance.append(
+                                                                            adj_metric(
+                                                                                alpha,
+                                                                                n_obs,
+                                                                                len(
+                                                                                    data.columns
+                                                                                )
+                                                                                - 2,  # minus two for date column and target variable column
+                                                                                performance_metric(
+                                                                                    preds,
+                                                                                    actuals,
+                                                                                ),
+                                                                            )
+                                                                        )
+
+                                                        performance.append(
+                                                            np.nanmean(run_performance)
+                                                        )
+
+                                                        # dict of params in model
+                                                        tmp_end_params = {
+                                                            "n_models": n_models,
+                                                            "n_timesteps": n_timesteps,
+                                                            "fill_na_func": fill_na_func,
+                                                            "fill_ragged_edges_func": fill_ragged_edges_func,
+                                                            "train_episodes": train_episodes,
+                                                            "batch_size": batch_size,
+                                                            "decay": decay,
+                                                            "n_hidden": n_hidden,
+                                                            "n_layers": n_layers,
+                                                            "dropout": dropout,
+                                                            "criterion": criterion,
+                                                            "optimizer": optimizer,
+                                                            "optimizer_parameters": optimizer_parameters,
+                                                        }
+
+                                                        end_params.append(
+                                                            tmp_end_params
+                                                        )
+
+        results = pd.DataFrame({"hyper_params": end_params, "performance": performance})
+        results = results.sort_values(["performance"]).reset_index(drop=True)
+
+        return results
