@@ -71,6 +71,7 @@ def univariate_order(
     pub_lags=[],
     lags=[],
     performance_metric="RMSE",
+    quiet=False,
 ):
     "univariate runs to determine order for additive variable selection"
 
@@ -98,7 +99,8 @@ def univariate_order(
 
     counter = 0
     for col in columns:
-        print(f"univariate stage: {counter} / {len(columns)} columns")
+        if quiet == False:
+            print(f"univariate stage: {counter} / {len(columns)} columns")
         counter += 1
 
         for fold in range(n_folds):
@@ -199,19 +201,21 @@ def variable_selection(
     lags=[],
     performance_metric="RMSE",
     alpha=0.0,
+    quiet=False,
 ):
     """Pick best-performing variables for a given set of hyperparameters
 
     parameters:
-            All parameters up to `optimizer_parameters` exactly the same as for any LSTM() model
+        All parameters up to `optimizer_parameters` exactly the same as for any LSTM() model
         :n_folds: int: how many folds for rolling fold validation to do
         :init_test_size: float: ϵ [0,1]. What proportion of the data to use for testing at the first fold
         :pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable. Leave empty to pick variables only on complete information, no synthetic vintages.
-            :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
-        :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error or "MAE" for mean absolute error. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
-        :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors.
+        :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
+        :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error, "MAE" for mean absolute error, or "AICc" for correctd Akaike Information Criterion. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
+        :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors. Not used for "AICc" performance metric.
+        :quiet: bool: whether or not to print progress
     output:
-            :return: tuple
+        :return: tuple
             list[str]: list of best-performing column names
             float: performance metric of these variables (i.e. best performing)
     """
@@ -239,6 +243,7 @@ def variable_selection(
         pub_lags,
         lags,
         performance_metric,
+        quiet,
     )
 
     # columns to assess, excluding date column and target variable, used for pub_lags
@@ -264,7 +269,8 @@ def variable_selection(
 
     counter = 0
     for col in column_order:
-        print(f"multivariate stage: {counter} / {len(column_order)} columns")
+        if quiet == False:
+            print(f"multivariate stage: {counter} / {len(column_order)} columns")
         counter += 1
 
         col_performance = []  # storage of all fold/vintage performances
@@ -407,6 +413,7 @@ def hyperparameter_tuning(
     pub_lags=[],
     lags=[],
     performance_metric="RMSE",
+    quiet=False,
 ):
     """Pick best-performing hyperparameters for a given dataset. n_timesteps_grid has default grid for predicting quarterly variable with monthly series, may have to change per use case. E.g. [12,24] for a yearly target with monthly indicators.
 
@@ -417,13 +424,14 @@ def hyperparameter_tuning(
         :pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable. Leave empty to pick variables only on complete information, no synthetic vintages.
         :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
         :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error or "MAE" for mean absolute error, "AICc" for corrected Akaike Information Criterion. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
+        :quiet: bool: whether or not to print progress
     output:
-            :return: Pandas DataFrame: hyperparameters sorted by best-performing model to least
+        :return: Pandas DataFrame: hyperparameters sorted by best-performing model to least
     """
 
     data = data.copy()
-    
-    alpha = 0.0 # legacy to work with same variable selection code
+
+    alpha = 0.0  # legacy to work with same variable selection code
 
     # fold train indices
     end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
@@ -478,9 +486,10 @@ def hyperparameter_tuning(
                                                     for (
                                                         optimizer_parameters
                                                     ) in optimizer_parameters_grid:
-                                                        print(
-                                                            f"tuning: {counter} / {n_runs}"
-                                                        )
+                                                        if quiet == False:
+                                                            print(
+                                                                f"tuning: {counter} / {n_runs}"
+                                                            )
                                                         counter += 1
 
                                                         run_performance = (
@@ -666,8 +675,8 @@ def hyperparameter_tuning(
         results = results.sort_values(["performance"]).reset_index(drop=True)
 
         return results
-    
-    
+
+
 def select_model(
     data,
     target_variable,
@@ -690,6 +699,7 @@ def select_model(
     lags=[],
     performance_metric="RMSE",
     alpha=0.0,
+    quiet=False,
 ):
     """Pick best-performing hyperparameters and variables for a given dataset. Given all permutations of hyperparameters (k), and p variables in the data,
     this function will run k * p * 2 models. This can take a very long time. To cut down on this time, run it with a highly reduced hyperparameter grid,
@@ -704,13 +714,14 @@ def select_model(
         :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
         :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error or "MAE" for mean absolute error, "AICc" for corrected Akaike Information Criterion. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
         :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors.
+        :quiet: bool: whether or not to print progress
     output:
-            :return: Pandas DataFrame: hyperparameters and variables sorted by best-performing model to least
+        :return: Pandas DataFrame: hyperparameters and variables sorted by best-performing model to least
     """
     performance = []
     variables = []
     hyperparams = []
-    
+
     counter = 0
     n_runs = np.prod(
         [
@@ -731,7 +742,7 @@ def select_model(
             ]
         ]
     )
-    
+
     for i in [0]:  # for some reason first loop not working
         for fill_na_func in fill_na_func_grid:
             for n_timesteps in n_timesteps_grid:
@@ -747,12 +758,16 @@ def select_model(
                                                     for (
                                                         optimizer_parameters
                                                     ) in optimizer_parameters_grid:
-                                                        print(
-                                                            f"tuning: {counter} / {n_runs}"
-                                                        )
+                                                        if quiet == False:
+                                                            print(
+                                                                f"tuning: {counter} / {n_runs}"
+                                                            )
                                                         counter += 1
-                                                        
-                                                        selected_variables, run_performance = variable_selection(
+
+                                                        (
+                                                            selected_variables,
+                                                            run_performance,
+                                                        ) = variable_selection(
                                                             data,
                                                             target_variable,
                                                             n_timesteps,
@@ -774,8 +789,9 @@ def select_model(
                                                             lags,
                                                             performance_metric,
                                                             alpha,
+                                                            quiet,
                                                         )
-                                                        
+
                                                         # dict of params in model
                                                         tmp_end_params = {
                                                             "n_models": n_models,
@@ -792,11 +808,26 @@ def select_model(
                                                             "optimizer": optimizer,
                                                             "optimizer_parameters": optimizer_parameters,
                                                         }
-                                                        
-                                                        hyperparams.append(tmp_end_params)
-                                                        performance.append(run_performance)
-                                                        variables.append(selected_variables)
-                                                        
 
-    results = pd.DataFrame({"variables":variables, "hyperparameters":hyperparams, "performance":performance}).sort_values(["performance"]).reset_index(drop=True)
+                                                        hyperparams.append(
+                                                            tmp_end_params
+                                                        )
+                                                        performance.append(
+                                                            run_performance
+                                                        )
+                                                        variables.append(
+                                                            selected_variables
+                                                        )
+
+    results = (
+        pd.DataFrame(
+            {
+                "variables": variables,
+                "hyperparameters": hyperparams,
+                "performance": performance,
+            }
+        )
+        .sort_values(["performance"])
+        .reset_index(drop=True)
+    )
     return results

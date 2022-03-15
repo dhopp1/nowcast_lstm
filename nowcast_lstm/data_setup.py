@@ -43,18 +43,18 @@ def ragged_fill_series(
     arma_full_series=None,
 ):
     """Filling in the ragged ends of a series, adhering to the periodicity of the series. If there is only one observation and periodicity cannot be determined, series will be returned unchanged.
-	
-	parameters:
-		:series: list/pandas Series: the series to fill the ragged edges of. Missings should be np.nans
-        :function: the function to fill nas with (e.g. np.nanmean, etc.). Use "ARMA" for ARMA filling
-        :backup_fill_method: function: which function to fill ragged edges with in case ARMA can't be estimated
-        :est_series: list/pandas Series: optional, the series to calculate the fillna and/or ARMA function on. Should not have nas filled in yet by any method. E.g. a train set. If None, will calculated based on itself.
-        :fitted_arma: optional, fitted ARMA model if available to avoid reestimating every time in the `gen_ragged_X` function
-        :arma_full_series: optional, for_full_arma_dataset output of `gen_dataset` function. Fitting the ARMA model on the full series history rather than just the series provided
-	
-	output:
-		:return: pandas Series with filled ragged edges
-	"""
+
+    parameters:
+            :series: list/pandas Series: the series to fill the ragged edges of. Missings should be np.nans
+    :function: the function to fill nas with (e.g. np.nanmean, etc.). Use "ARMA" for ARMA filling
+    :backup_fill_method: function: which function to fill ragged edges with in case ARMA can't be estimated
+    :est_series: list/pandas Series: optional, the series to calculate the fillna and/or ARMA function on. Should not have nas filled in yet by any method. E.g. a train set. If None, will calculated based on itself.
+    :fitted_arma: optional, fitted ARMA model if available to avoid reestimating every time in the `gen_ragged_X` function
+    :arma_full_series: optional, for_full_arma_dataset output of `gen_dataset` function. Fitting the ARMA model on the full series history rather than just the series provided
+
+    output:
+            :return: pandas Series with filled ragged edges
+    """
     result = pd.Series(series).copy()
     if est_series is None:
         est_series = result.copy()
@@ -132,25 +132,25 @@ def gen_dataset(
     arma_full_df=None,
 ):
     """Intermediate step to generate a raw dataset the model will accept
-	Input should be a pandas dataframe of of (n observations) x (m features + 1 target column). Non-numeric columns will be dropped. Missing values should be `np.nan`s.
-	The data should be fed in in the time of the most granular series. E.g. 3 monthly series and 2 quarterly should be given as a monthly dataframe, with NAs for the two intervening months for the quarterly variables. Apply the same logic to yearly or daily variables.
-	
-	parameters:
-		:rawdata: pandas DataFrame: n x m+1 dataframe
-        :target_variable: str: name of the target variable column
-        :fill_na_func: function: function to replace within-series NAs. Given the column, the function should return a scalar. 
-        :fill_ragged_edges: function to replace NAs in ragged edges (data missing at end of series). Pass "ARMA" for ARMA filling
-        :fill_na_other_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with filling NAs based on a different dataset (e.g. the train dataset). E.g. `train=LSTM(...)`, `gen_dataset(test_data, target_variable, fill_na_other_df=train.data)`
-        :arma_full_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with ARMA filling on a full-series history, rather than just the history present in the train set
-	
-	output:
-		:return: Dict of numpy arrays: n x m+1 arrays.
-            na_filled_dataset: NA filled dataset the model will be trained on
-            for_ragged_dataset: dataset with NAs maintained, for knowing periodicity in `gen_ragged_X` function
-            for_full_arma_dataset: optional, full dataset for calculating ARMA on full history of series
-            other_dataset: other dataset (i.e. train) on which to base NA filling
-            arma_models: list of fitted ARMA models
-	"""
+    Input should be a pandas dataframe of of (n observations) x (m features + 1 target column). Non-numeric columns will be dropped. Missing values should be `np.nan`s.
+    The data should be fed in in the time of the most granular series. E.g. 3 monthly series and 2 quarterly should be given as a monthly dataframe, with NAs for the two intervening months for the quarterly variables. Apply the same logic to yearly or daily variables.
+
+    parameters:
+            :rawdata: pandas DataFrame: n x m+1 dataframe
+    :target_variable: str: name of the target variable column
+    :fill_na_func: function: function to replace within-series NAs. Given the column, the function should return a scalar.
+    :fill_ragged_edges: function to replace NAs in ragged edges (data missing at end of series). Pass "ARMA" for ARMA filling
+    :fill_na_other_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with filling NAs based on a different dataset (e.g. the train dataset). E.g. `train=LSTM(...)`, `gen_dataset(test_data, target_variable, fill_na_other_df=train.data)`
+    :arma_full_df: pandas DataFrame: A dataframe with the exact same columns as the rawdata dataframe. For use with ARMA filling on a full-series history, rather than just the history present in the train set
+
+    output:
+            :return: Dict of numpy arrays: n x m+1 arrays.
+        na_filled_dataset: NA filled dataset the model will be trained on
+        for_ragged_dataset: dataset with NAs maintained, for knowing periodicity in `gen_ragged_X` function
+        for_full_arma_dataset: optional, full dataset for calculating ARMA on full history of series
+        other_dataset: other dataset (i.e. train) on which to base NA filling
+        arma_models: list of fitted ARMA models
+    """
     if fill_ragged_edges is None:
         fill_ragged_edges = fill_na_func
 
@@ -248,22 +248,22 @@ def gen_dataset(
 
 def gen_model_input(dataset, n_timesteps, drop_missing_ys=True):
     """Final step in generating a dataset the model will accept
-	Input should be output of the `gen_dataset` function. Creates two series, X for input and y for target. 
-	y is a one-dimensional np array equivalent to a list of target values. 
-	X is an n x n_timesteps x m matrix. 
-	Essentially the input data for each test observation becomes an n_steps x m matrix instead of a single row of data. In this way the LSTM network can learn from each variables past, not just its current value.
-	Observations that don't have enough n_steps history will be dropped.
-	
-	parameters:
-		:dataset: numpy array: n x m+1 array
-		:n_timesteps: int: how many historical periods to consider when training the model. For example if the original data is monthly, n_timesteps=12 would consider data for the last year.
-        :drop_missing_ys: boolean: whether or not to filter out missing ys. Set to true when creating training data, false when want to run predictions on data that may not have a y.
-	
-	output:
-		:return: numpy tuple of:
-			X: `n_obs x n_timesteps x n_features`
-			y: `n_obs`
-	"""
+    Input should be output of the `gen_dataset` function. Creates two series, X for input and y for target.
+    y is a one-dimensional np array equivalent to a list of target values.
+    X is an n x n_timesteps x m matrix.
+    Essentially the input data for each test observation becomes an n_steps x m matrix instead of a single row of data. In this way the LSTM network can learn from each variables past, not just its current value.
+    Observations that don't have enough n_steps history will be dropped.
+
+    parameters:
+            :dataset: numpy array: n x m+1 array
+            :n_timesteps: int: how many historical periods to consider when training the model. For example if the original data is monthly, n_timesteps=12 would consider data for the last year.
+    :drop_missing_ys: boolean: whether or not to filter out missing ys. Set to true when creating training data, false when want to run predictions on data that may not have a y.
+
+    output:
+            :return: numpy tuple of:
+                    X: `n_obs x n_timesteps x n_features`
+                    y: `n_obs`
+    """
 
     X, y = list(), list()
     for i in range(len(dataset)):
@@ -302,24 +302,24 @@ def gen_ragged_X(
     end_date=None,
 ):
     """Produce vintage model inputs given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)
-	
-	parameters:
-		:X: numpy array: n x m+1 array, second output of `gen_model_input` function, `for_ragged_dataset`, passed through the `gen_model_input` function
-		:pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
-        :lag: int: simulated periods back, interpretable as last complete period relative to target period. E.g. -2 = simulating data as it would have been 1 month before target period, i.e. 2 months ago is last complete period. 
-        :for_ragged_dataset: numpy array: the original full ragged dataset, output of `gen_dataset` function, `for_ragged_dataset`
-        :target_variable: str: the target variable of this dataset
-        :fill_ragged_edges: function: which function to fill ragged edges with, "ARMA" for ARMA model
-        :backup_fill_method: function: which function to fill ragged edges with in case ARMA can't be estimated. Should be the same as originally passed to `gen_dataset` function
-        :other_dataset: numpy array: other dataframe from which to calculate the fill NA values, i.e. a training dataset. Output of `gen_dataset` function, `other_dataset`
-        :for_full_arma_dataset: numpy array: data to fit the ARMA model on
-        :dates: pandas Series: list of dates for the data
-        :start_date: str in "YYYY-MM-DD" format: start date of generating ragged preds. To save calculation time, i.e. just calculating after testing date instead of all dates
-        :end_date: str in "YYYY-MM-DD" format: end date of generating ragged preds
-	
-	output:
-		:return: numpy array equivalent in shape to X input, but with trailing edges set to NA then filled
-	"""
+
+    parameters:
+            :X: numpy array: n x m+1 array, second output of `gen_model_input` function, `for_ragged_dataset`, passed through the `gen_model_input` function
+            :pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
+    :lag: int: simulated periods back, interpretable as last complete period relative to target period. E.g. -2 = simulating data as it would have been 1 month before target period, i.e. 2 months ago is last complete period.
+    :for_ragged_dataset: numpy array: the original full ragged dataset, output of `gen_dataset` function, `for_ragged_dataset`
+    :target_variable: str: the target variable of this dataset
+    :fill_ragged_edges: function: which function to fill ragged edges with, "ARMA" for ARMA model
+    :backup_fill_method: function: which function to fill ragged edges with in case ARMA can't be estimated. Should be the same as originally passed to `gen_dataset` function
+    :other_dataset: numpy array: other dataframe from which to calculate the fill NA values, i.e. a training dataset. Output of `gen_dataset` function, `other_dataset`
+    :for_full_arma_dataset: numpy array: data to fit the ARMA model on
+    :dates: pandas Series: list of dates for the data
+    :start_date: str in "YYYY-MM-DD" format: start date of generating ragged preds. To save calculation time, i.e. just calculating after testing date instead of all dates
+    :end_date: str in "YYYY-MM-DD" format: end date of generating ragged preds
+
+    output:
+            :return: numpy array equivalent in shape to X input, but with trailing edges set to NA then filled
+    """
     # to get fill_na values based on either this dataframe or another (training)
     if other_dataset is None:
         fill_na_dataset = for_ragged_dataset

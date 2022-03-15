@@ -18,13 +18,13 @@ class LSTM:
     `model.mv_lstm` to get a list of n_models length of torch networks
     `model.train_loss` to get a list of lists (len = n_models) of training losses per epoch
     `model.gen_ragged_X(pub_lags, lag)` to generate a data vintage of X model input, useful for evaluation, how would this model have performed historically with missing data.
-    
-	
-	parameters:
+
+
+        parameters:
         :data: pandas DataFrame: n x m+1 dataframe
         :target_variable: str: name of the target var
         :n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
-        :fill_na_func: function: function to replace within-series NAs. Given a column, the function should return a scalar. 
+        :fill_na_func: function: function to replace within-series NAs. Given a column, the function should return a scalar.
         :fill_ragged_edges_func: function to replace NAs in ragged edges (data missing at end of series). Pass "ARMA" for ARMA filling. Not ARMA filling will be significantly slower as models have to be estimated for each variable to fill ragged edges.
         :n_models: int: number of models to train and take the average of for more robust estimates
         :train_episodes: int: number of epochs/episodes to train the model
@@ -36,7 +36,7 @@ class LSTM:
         :criterion: torch loss criterion, defaults to MAE
         :optimizer: torch optimizer, defaults to Adam
         :optimizer_parameters: dictionary: list of parameters for optimizer, including learning rate. E.g. {"lr": 1e-2}
-	"""
+    """
 
     def __init__(
         self,
@@ -54,7 +54,7 @@ class LSTM:
         dropout=0,
         criterion="",
         optimizer="",
-        optimizer_parameters={"lr":1e-2},
+        optimizer_parameters={"lr": 1e-2},
     ):
         self.data_setup = import_module("nowcast_lstm.data_setup")
         self.modelling = import_module("nowcast_lstm.modelling")
@@ -109,10 +109,10 @@ class LSTM:
 
     def train(self, num_workers=0, shuffle=False, quiet=False):
         """train the model
-        
+
         :num_workers: int: number of workers for multi-process data loading
         :shuffle: boolean: whether to shuffle data at every epoch
-		:quiet: boolean: whether or not to print the losses in the epoch loop
+                :quiet: boolean: whether or not to print the losses in the epoch loop
         """
         for i in range(self.n_models):
             if quiet == False:
@@ -126,7 +126,7 @@ class LSTM:
                 dropout=self.dropout,
                 criterion=self.criterion,
                 optimizer=self.optimizer,
-                optimizer_parameters = self.optimizer_parameters,
+                optimizer_parameters=self.optimizer_parameters,
             )
             mv_lstm = instantiated["mv_lstm"]
             criterion = instantiated["criterion"]
@@ -150,14 +150,14 @@ class LSTM:
 
     def predict(self, data, only_actuals_obs=False):
         """Make predictions on a dataframe with same columns and order as the model was trained on, including the target variable.
-	
-    	parameters:
-    		:data: pandas DataFrame: data to predict fitted model on
+
+        parameters:
+                :data: pandas DataFrame: data to predict fitted model on
             :only_actuals_obs: boolean: whether or not to predict observations without a target actual
-    	
-    	output:
-    		:return: pandas DataFrame of dates and predictions
-    	"""
+
+        output:
+                :return: pandas DataFrame of dates and predictions
+        """
         dataset = self.data_setup.gen_dataset(
             data,
             self.target_variable,
@@ -195,17 +195,17 @@ class LSTM:
 
     def gen_ragged_X(self, pub_lags, lag, data=None, start_date=None, end_date=None):
         """Produce vintage model inputs X given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)
-	
-    	parameters:
-    		:pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
+
+        parameters:
+                :pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
             :lag: int: simulated periods back. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc.
             :data: pandas DataFrame: dataframe to generate the ragged datasets on, if none will calculate on training data
             :start_date: str in "YYYY-MM-DD" format: start date of generating ragged preds. To save calculation time, i.e. just calculating after testing date instead of all dates
             :end_date: str in "YYYY-MM-DD" format: end date of generating ragged preds
-    	
-    	output:
-    		:return: numpy array equivalent in shape to X input, but with trailing edges set to missing/0, ys, and dates
-    	"""
+
+        output:
+                :return: numpy array equivalent in shape to X input, but with trailing edges set to missing/0, ys, and dates
+        """
         if data is None:
             data = self.data
         data = data.reset_index(drop=True)
@@ -264,24 +264,30 @@ class LSTM:
 
     def ragged_preds(self, pub_lags, lag, data=None, start_date=None, end_date=None):
         """Get predictions on artificial vintages
-	
-    	parameters:
-    		:pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
+
+        parameters:
+                :pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
             :lag: int: simulated periods back. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc.
             :data: pandas DataFrame: dataframe to generate the ragged datasets on, if none will calculate on training data
             :start_date: str in "YYYY-MM-DD" format: start date of generating ragged preds. To save calculation time, i.e. just calculating after testing date instead of all dates
             :end_date: str in "YYYY-MM-DD" format: end date of generating ragged preds
-    	
-    	output:
-    		:return: pandas DataFrame of actuals, predictions, and dates
-    	"""
+
+        output:
+                :return: pandas DataFrame of actuals, predictions, and dates
+        """
         X, y, dates = self.gen_ragged_X(pub_lags, lag, data, start_date, end_date)
         # predictions on every model
         preds = []
         for i in range(self.n_models):
             preds.append(self.modelling.predict(X, self.mv_lstm[i]))
         preds = list(np.mean(preds, axis=0))
-        pred_df = pd.DataFrame({"date": dates, "actuals": y, "predictions": preds,})
+        pred_df = pd.DataFrame(
+            {
+                "date": dates,
+                "actuals": y,
+                "predictions": preds,
+            }
+        )
         # filter rows with no prediction
         pred_df = pred_df.loc[~pd.isna(pred_df.predictions), :].reset_index(drop=True)
         # filter dates
@@ -292,20 +298,28 @@ class LSTM:
 
         return pred_df
 
-
     def gen_news(self, target_period, old_data, new_data):
         """Generate the news between two data releases using the method of holding out new data feature by feature and recording the differences in model output
         Make sure both the old and new dataset have the target period in them to allow for predictions and news generation.
-        
+
         parameters:
             :target_period: str: target prediction date
             :old_data: pd.DataFrame: previous dataset
             :new_data: pd.DataFrame: new dataset
-        
+
         output: Dict
             :news: dataframe of news contribution of each column with updated data. scaled_news is news scaled to sum to actual prediction delta.
             :old_pred: prediction on the previous dataset
             :new_pred: prediction on the new dataset
             :holdout_discrepency: % difference between the sum of news via the holdout method and the actual prediction delta
-    """
+        """
         return self.modelling.gen_news(self, target_period, old_data, new_data)
+
+    def feature_contribution(self):
+        """Obtain permutation feature contribution via RMSE on the train set
+
+        output: Pandas DataFrame
+            :feature: column name
+            :scaled_contribution: contribution of feature to the model, scaled to 1 = most important feature
+        """
+        return self.modelling.feature_contribution(self)

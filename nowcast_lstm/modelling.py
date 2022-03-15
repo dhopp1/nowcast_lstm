@@ -14,25 +14,25 @@ def instantiate_model(
     dropout=0,
     criterion="",
     optimizer="",
-    optimizer_parameters={"lr":1e-2},
+    optimizer_parameters={"lr": 1e-2},
 ):
     """Create the network, criterion, and optimizer objects necessary for training a model
-	
-	parameters:
-		:model_input: numpy array: output of `gen_model_input` function, first entry in tuple (X)
-		:n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
-		:n_hidden: int: number of hidden states in the network
-		:n_layers: int: number of LSTM layers in the network
-		:dropout: float: dropout rate between the LSTM layers
-		:lr: float: learning rate
-		:criterion: torch loss criterion, defaults to MAE
-		:optimizer: torch optimizer, defaults to Adam
-	
-	output: Dict
-		:mv_lstm: torch network
-		:criterion: torch criterion
-		:optimizer: torch optimizer
-	"""
+
+    parameters:
+            :model_input: numpy array: output of `gen_model_input` function, first entry in tuple (X)
+            :n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
+            :n_hidden: int: number of hidden states in the network
+            :n_layers: int: number of LSTM layers in the network
+            :dropout: float: dropout rate between the LSTM layers
+            :lr: float: learning rate
+            :criterion: torch loss criterion, defaults to MAE
+            :optimizer: torch optimizer, defaults to Adam
+
+    output: Dict
+            :mv_lstm: torch network
+            :criterion: torch criterion
+            :optimizer: torch optimizer
+    """
 
     n_features = model_x_input.shape[
         2
@@ -42,17 +42,17 @@ def instantiate_model(
     )
     if criterion == "":
         criterion = torch.nn.L1Loss()
-        
+
     # for generating the optimizer
-    def generate_optimizer(model, opt_fn = None, opt_kwargs = optimizer_parameters):
+    def generate_optimizer(model, opt_fn=None, opt_kwargs=optimizer_parameters):
         optimizer = opt_fn(model.parameters(), **opt_kwargs)
         return optimizer
-        
+
     if optimizer == "":
         optim = generate_optimizer(mv_lstm, torch.optim.Adam, optimizer_parameters)
     else:
         optim = generate_optimizer(mv_lstm, optimizer, optimizer_parameters)
-        
+
     return {
         "mv_lstm": mv_lstm,
         "criterion": criterion,
@@ -89,25 +89,25 @@ def train_model(
     quiet=False,
 ):
     """Train the network
-	
-	parameters:
-		:X: numpy array: output of `gen_model_input` function, first entry in tuple (X), input variables
-		:y: numpy array: output of `gen_model_input` function, second entry in tuple (y), targets
-		:mv_lstm: torch network: output of `instantiate_model` function, "mv_lstm" entry
-		:criterion: torch criterion: output of `instantiate_model` function, "criterion" entry, MAE is default
-		:optimizer: torch optimizer: output of `instantiate_model` function, "optimizer" entry, Adam is default
-		:train_episodes: int: number of epochs/episodes to train the model
-		:batch_size: int: number of observations per training batch
-		:decay: float: learning rate decay
-        :num_workers: int: number of workers for multi-process data loading
-        :shuffle: boolean: whether to shuffle data at every epoch
-		:quiet: boolean: whether or not to print the losses in the epoch loop
-	
-	output:
-		:return: Dict
-			:mv_lstm: trained network
-			:train_loss: list of losses per epoch, for informational purposes
-	"""
+
+    parameters:
+            :X: numpy array: output of `gen_model_input` function, first entry in tuple (X), input variables
+            :y: numpy array: output of `gen_model_input` function, second entry in tuple (y), targets
+            :mv_lstm: torch network: output of `instantiate_model` function, "mv_lstm" entry
+            :criterion: torch criterion: output of `instantiate_model` function, "criterion" entry, MAE is default
+            :optimizer: torch optimizer: output of `instantiate_model` function, "optimizer" entry, Adam is default
+            :train_episodes: int: number of epochs/episodes to train the model
+            :batch_size: int: number of observations per training batch
+            :decay: float: learning rate decay
+    :num_workers: int: number of workers for multi-process data loading
+    :shuffle: boolean: whether to shuffle data at every epoch
+            :quiet: boolean: whether or not to print the losses in the epoch loop
+
+    output:
+            :return: Dict
+                    :mv_lstm: trained network
+                    :train_loss: list of losses per epoch, for informational purposes
+    """
 
     # CUDA if available
     use_cuda = torch.cuda.is_available()
@@ -156,14 +156,14 @@ def train_model(
 
 def predict(X, mv_lstm):
     """Make predictions on a trained network
-	
-	parameters:
-		:X: numpy array: output of `gen_model_input` function, first entry in tuple (X), input variables
-		:mv_lstm: torch network: output of `train_model` function, "mv_lstm" entry, trained network
-	
-	output:
-		:return: np array: array of predictions
-	"""
+
+    parameters:
+            :X: numpy array: output of `gen_model_input` function, first entry in tuple (X), input variables
+            :mv_lstm: torch network: output of `train_model` function, "mv_lstm" entry, trained network
+
+    output:
+            :return: np array: array of predictions
+    """
     with torch.no_grad():
         inpt = torch.tensor(X, dtype=torch.float32)
     mv_lstm.init_hidden(inpt.size(0))
@@ -171,16 +171,17 @@ def predict(X, mv_lstm):
 
     return preds
 
+
 def gen_news(model, target_period, old_data, new_data):
     """Generate the news between two data releases using the method of holding out new data feature by feature and recording the differences in model output
     Make sure both the old and new dataset have the target period in them to allow for predictions and news generation.
-    
+
     parameters:
         :model: LSTM.LSTM: trained LSTM model
         :target_period: str: target prediction date
         :old_data: pd.DataFrame: previous dataset
         :new_data: pd.DataFrame: new dataset
-    
+
     output: Dict
         :news: dataframe of news contribution of each column with updated data. scaled_news is news scaled to sum to actual prediction delta.
         :old_pred: prediction on the previous dataset
@@ -263,4 +264,62 @@ def gen_news(model, target_period, old_data, new_data):
     else:
         diff = 1
         news["scaled_news"] = news.news
-    return {"news":news, "old_pred":old_pred, "new_pred":new_pred, "holdout_discrepency":diff}
+    return {
+        "news": news,
+        "old_pred": old_pred,
+        "new_pred": new_pred,
+        "holdout_discrepency": diff,
+    }
+
+
+def feature_contribution(model):
+    """Obtain permutation feature contribution via RMSE on the train set
+
+    parameters:
+        :model: LSTM.LSTM: trained LSTM model
+
+    output: Pandas DataFrame
+        :feature: column name
+        :scaled_contribution: contribution of feature to the model, scaled to 1 = most important feature
+    """
+    train_rmse = np.sqrt(
+        np.nanmean(
+            (model.y - model.predict(model.data, only_actuals_obs=True).predictions)
+            ** 2
+        )
+    )
+
+    # iteratively go through columns recording change in RMSE
+    col_rmses = []
+    cols = []
+    for col in model.data.columns:
+        if (col != model.target_variable) & (col != model.date_series.columns[0]):
+            tmp_data = model.data.copy()
+            tmp_data[col] = np.nanmean(
+                tmp_data[col]
+            )  # set column to mean, effectively removing it
+            tmp_rmse = np.sqrt(
+                np.nanmean(
+                    (
+                        model.y
+                        - model.predict(tmp_data, only_actuals_obs=True).predictions
+                    )
+                    ** 2
+                )
+            )
+            col_rmses.append(tmp_rmse)
+            cols.append(col)
+    importance = (
+        pd.DataFrame(
+            {"feature": cols, "scaled_contribution": col_rmses / train_rmse - 1}
+        )
+        .sort_values(["scaled_contribution"], ascending=False)
+        .reset_index(drop=True)
+    )
+
+    # scaling importance relataive to the most important
+    importance.scaled_contribution = importance.scaled_contribution / np.max(
+        importance.scaled_contribution
+    )
+
+    return importance
