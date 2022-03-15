@@ -1,5 +1,7 @@
 # nowcast_lstm
 
+**New in v0.2.0**: ability to get feature contributions to the model and perform automatic hyperparameter tuning and variable selection, no need to write this outside of the library anymore.
+
 **Installation**: from the command line run: 
 
 ```
@@ -32,6 +34,7 @@ Further explanation of the background problem can be found in [this UNCTAD resea
 
 ## Quick usage
 The main object and functionality of the library comes from the `LSTM` object. Given `data` = a pandas DataFrame of a date column + monthly data + a quarterly target series to run the model on, usage is as follows:
+
 ```python
 from nowcast_lstm.LSTM import LSTM
 
@@ -62,7 +65,25 @@ trained_model = dill.load(open("trained_model.pkl", "rb", -1))
 
 ```
 
+## Model selection
+To ease variable and hyperparameter selection, the library provides provisions for this process to be carried out automatically. See the example file or run `help()` on the functions for more information.
+
+```python
+from nowcast_lstm.model_selection import variable_selection, hyperparameter_tuning, select_model
+
+# case where given hyperparameters, want to select which variables go into the model
+selected_variables = variable_selection(data, "target_col_name", n_timesteps=12) # default parameters with 12 timestep history
+
+# case where given variables, want to select hyperparameters
+performance = hyperparameter_tuning(data, "target_col_name", n_timesteps=12, n_hidden_grid=[10,20])
+
+# case where want to select both variables and hyperparameters for the model
+performance = select_model(data, "target_col_name", n_timesteps=12, n_hidden_grid=[10,20])
+
+```
+
 ## LSTM parameters
+
 - `data`: `pandas DataFrame` of the data to train the model on. Should contain a target column. Any non-numeric columns will be dropped. It should be in the most frequent period of the data. E.g. if I have three monthly variables, two quarterly variables, and a quarterly series, the rows of the dataframe should be months, with the quarterly values appearing every three months (whether Q1 = Jan 1 or Mar 1 depends on the series, but generally the quarterly value should come at the end of the quarter, i.e. Mar 1), with NAs or 0s in between. The same logic applies for yearly variables.
 - `target_variable`: a `string`, the name of the target column in the dataframe.
 - `n_timesteps`: an `int`, corresponding to the "memory" of the network, i.e. the target value depends on the x past values of the independent variables. For example, if the data is monthly, `n_timesteps=12` means that the estimated target value is based on the previous years' worth of data, 24 is the last two years', etc. This is a hyper parameter that can be evaluated.
@@ -81,6 +102,7 @@ trained_model = dill.load(open("trained_model.pkl", "rb", -1))
 
 ## LSTM outputs
 Assuming a model has been instantiated and trained with `model = LSTM(...)`:
+
 - `model.train()`: trains the network. Set `quiet=True` to suppress printing of losses per epoch during training.
 - `model.X`: transformed data in the format the model was/will actually be trained on. A `numpy array` of dimensions `n observations x n timesteps x n features`.
 - `model.y`: one-dimensional list target values the model was/will be trained on.
@@ -90,3 +112,4 @@ Assuming a model has been instantiated and trained with `model = LSTM(...)`:
 - `model.train_loss`: a `list` of length `n_models` containing the training losses of each of the trained networks.
 - `model.ragged_preds(pub_lags, lag, new_data, start_date, end_date)`: adds artificial missing data then returns a dataframe with date, actuals, and predictions. This is especially useful as a testing mechanism, to generate datasets to see how a trained model would have performed at different synthetic vintages or periods of time in the past. `pub_lags` should be a list of `ints` (in the same order as the columns of the original data) of length `n_features` (i.e. excluding the target variable) dictating the normal publication lag of each of the variables. `lag` is an int of how many periods back we want to simulate being, interpretable as last period relative to target period. E.g. if we are nowcasting June, `lag = -1` will simulate being in May, where May data is published for variables with a publication lag of 0. It will fill with missings values that wouldn't have been available yet according to the publication lag of the variable + the `lag` parameter. It will fill missings with the same method specified in the `fill_ragged_edges_func` parameter in model instantiation.
 - `model.gen_news(target_period, old_data, new_data)`: Generates news between one data release to another, adding an element of causal inference to the network. Works by holding out new data column by column, recording differences between this prediction and the prediction on full data, and registering this difference as the new data's contribution to the prediction. Contributions are then scaled to equal the actual observed difference in prediction in the aggregate between the old dataset and the new dataset.
+- `model.feature_contribution()`: Generates a dataframe showing the relative feature importance of variables in the model using the permutation feature contribution method via RMSE on the train set.
