@@ -201,6 +201,7 @@ def variable_selection(
     lags=[],
     performance_metric="RMSE",
     alpha=0.0,
+    initial_ordering="feature_contribution",
     quiet=False,
 ):
     """Pick best-performing variables for a given set of hyperparameters
@@ -213,6 +214,7 @@ def variable_selection(
         :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
         :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error, "MAE" for mean absolute error, or "AICc" for correctd Akaike Information Criterion. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
         :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors. Not used for "AICc" performance metric.
+        :initial_ordering: str: ["feature_contribution", "univariate"]. How to get initial order of features to check additively. "feature_contribution" uses the feature contribution of one model, "univariate" calculates univariate models of all features and orders by performance metric. Feature contribution usually capable of getting comparable results and runs much faster.
         :quiet: bool: whether or not to print progress
     output:
         :return: tuple
@@ -222,29 +224,50 @@ def variable_selection(
 
     data = data.copy()
 
-    column_order = univariate_order(
-        data,
-        target_variable,
-        n_timesteps,
-        fill_na_func,
-        fill_ragged_edges_func,
-        n_models,
-        train_episodes,
-        batch_size,
-        decay,
-        n_hidden,
-        n_layers,
-        dropout,
-        criterion,
-        optimizer,
-        optimizer_parameters,
-        n_folds,
-        init_test_size,
-        pub_lags,
-        lags,
-        performance_metric,
-        quiet,
-    )
+    if initial_ordering == "univariate":
+        column_order = univariate_order(
+            data,
+            target_variable,
+            n_timesteps,
+            fill_na_func,
+            fill_ragged_edges_func,
+            n_models,
+            train_episodes,
+            batch_size,
+            decay,
+            n_hidden,
+            n_layers,
+            dropout,
+            criterion,
+            optimizer,
+            optimizer_parameters,
+            n_folds,
+            init_test_size,
+            pub_lags,
+            lags,
+            performance_metric,
+            quiet,
+        )
+    elif initial_ordering == "feature_contribution":
+        model = LSTM(
+                data,
+                target_variable,
+                n_timesteps,
+                fill_na_func,
+                fill_ragged_edges_func,
+                n_models,
+                train_episodes,
+                batch_size,
+                decay,
+                n_hidden,
+                n_layers,
+                dropout,
+                criterion,
+                optimizer,
+                optimizer_parameters,
+            )
+        model.train(quiet=True)
+        column_order = list(model.feature_contribution().feature.values)
 
     # columns to assess, excluding date column and target variable, used for pub_lags
     all_columns = list(data.columns[data.columns != target_variable][1:])
@@ -699,6 +722,7 @@ def select_model(
     lags=[],
     performance_metric="RMSE",
     alpha=0.0,
+    initial_ordering="feature_contribution",
     quiet=False,
 ):
     """Pick best-performing hyperparameters and variables for a given dataset. Given all permutations of hyperparameters (k), and p variables in the data,
@@ -714,6 +738,7 @@ def select_model(
         :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
         :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error or "MAE" for mean absolute error, "AICc" for corrected Akaike Information Criterion. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
         :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors.
+        :initial_ordering: str: ["feature_contribution", "univariate"]. How to get initial order of features to check additively. "feature_contribution" uses the feature contribution of one model, "univariate" calculates univariate models of all features and orders by performance metric. Feature contribution usually capable of getting comparable results and runs much faster.
         :quiet: bool: whether or not to print progress
     output:
         :return: Pandas DataFrame: hyperparameters and variables sorted by best-performing model to least
@@ -789,6 +814,7 @@ def select_model(
                                                             lags,
                                                             performance_metric,
                                                             alpha,
+                                                            initial_ordering,
                                                             quiet,
                                                         )
 
