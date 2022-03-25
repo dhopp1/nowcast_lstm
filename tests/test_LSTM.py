@@ -97,7 +97,11 @@ class TestDataSetup(unittest.TestCase):
         self.assertEqual(len(model2.feature_contribution()), 2)
         
     def test_LSTM_variable_selection(self):
-        variables, perf = variable_selection(self.long_x, "target", 2, init_test_size=0.5, quiet=True)
+        variables, perf = variable_selection(self.long_x, "target", 2, init_test_size=0.5, quiet=True, initial_ordering="feature_contribution")
+        self.assertEqual(variables, ['var1'])
+        
+    def test_LSTM_variable_selection_univariate(self):
+        variables, perf = variable_selection(self.long_x, "target", 2, init_test_size=0.5, quiet=True, initial_ordering="univariate")
         self.assertEqual(variables, ['var1'])
         
     def test_LSTM_hyperparameter_tuning(self):
@@ -105,7 +109,11 @@ class TestDataSetup(unittest.TestCase):
         self.assertEqual(len(results), 2)
         
     def test_LSTM_select_model(self):
-        results = select_model(self.long_x, "target", n_timesteps_grid=[2], n_layers_grid=[1,2], init_test_size=0.5, quiet=True)
+        results = select_model(self.long_x, "target", n_timesteps_grid=[2], n_layers_grid=[1,2], init_test_size=0.5, quiet=True, initial_ordering="feature_contribution")
+        self.assertEqual(len(results), 2)
+        
+    def test_LSTM_select_model_univariate(self):
+        results = select_model(self.long_x, "target", n_timesteps_grid=[2], n_layers_grid=[1,2], init_test_size=0.5, quiet=True, initial_ordering="univariate")
         self.assertEqual(len(results), 2)
 
 if __name__ == "__main__":

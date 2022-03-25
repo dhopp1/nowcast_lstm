@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.2.1
+
+### Added
+
+* `initial_ordering` parameter to `variable_selection()` and `select_model()` functions. In recursive feature addition (RFA) variable selection, can obtain initial variable order either via their feature contribution in a full model, or from univariate model performances. Former (default) is about 2x faster.
+
 ## 0.2.0
 
 ### Added

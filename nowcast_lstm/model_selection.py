@@ -214,7 +214,7 @@ def variable_selection(
         :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
         :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error, "MAE" for mean absolute error, or "AICc" for correctd Akaike Information Criterion. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
         :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors. Not used for "AICc" performance metric.
-        :initial_ordering: str: ["feature_contribution", "univariate"]. How to get initial order of features to check additively. "feature_contribution" uses the feature contribution of one model, "univariate" calculates univariate models of all features and orders by performance metric. Feature contribution usually capable of getting comparable results and runs much faster.
+        :initial_ordering: str: ["feature_contribution", "univariate"]. How to get initial order of features to check additively. "feature_contribution" uses the feature contribution of one model, "univariate" calculates univariate models of all features and orders by performance metric. Feature contribution is about twice as fast.
         :quiet: bool: whether or not to print progress
     output:
         :return: tuple
@@ -726,8 +726,8 @@ def select_model(
     quiet=False,
 ):
     """Pick best-performing hyperparameters and variables for a given dataset. Given all permutations of hyperparameters (k), and p variables in the data,
-    this function will run k * p * 2 models. This can take a very long time. To cut down on this time, run it with a highly reduced hyperparameter grid,
-    i.e., a very small k, then record the selected variables, then run the `hyperparameter_tuning` function with these selected varaibles
+    this function will run k * p * 2 models if `initial_ordering` set to "univariate", k * p if set to default of `feature_contribution`. This can take a very long time. To cut down on this time, run it with a highly reduced hyperparameter grid,
+    i.e., a very small k, then record the selected variables, then run the `hyperparameter_tuning` function with these selected variables
     with a much more detailed grid.
 
     parameters:
@@ -738,7 +738,7 @@ def select_model(
         :lags: list[int]: simulated periods back to test when selecting variables. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc. So [-2, 0, 2] will account for those vintages in model selection. Leave empty to pick variables only on complete information, no synthetic vintages.
         :performance_metric: performance metric to use for variable selection. Pass "RMSE" for root mean square error or "MAE" for mean absolute error, "AICc" for corrected Akaike Information Criterion. Alternatively can pass a function that takes arguments of a pandas Series of predictions and actuals and returns a scalar. E.g. custom_function(preds, actuals).
         :alpha: float: ϵ [0,1]. 0 implies no penalization for additional regressors, 1 implies most severe penalty for additional regressors.
-        :initial_ordering: str: ["feature_contribution", "univariate"]. How to get initial order of features to check additively. "feature_contribution" uses the feature contribution of one model, "univariate" calculates univariate models of all features and orders by performance metric. Feature contribution usually capable of getting comparable results and runs much faster.
+        :initial_ordering: str: ["feature_contribution", "univariate"]. How to get initial order of features to check additively. "feature_contribution" uses the feature contribution of one model, "univariate" calculates univariate models of all features and orders by performance metric. Feature contribution is about twice as fast.
         :quiet: bool: whether or not to print progress
     output:
         :return: Pandas DataFrame: hyperparameters and variables sorted by best-performing model to least
