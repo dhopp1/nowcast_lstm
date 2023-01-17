@@ -1,5 +1,7 @@
 # nowcast_lstm
 
+**New in v0.2.2**: ability to get uncertainty intervals for predictions and predictions on synthetic vintages.
+
 **New in v0.2.0**: ability to get feature contributions to the model and perform automatic hyperparameter tuning and variable selection, no need to write this outside of the library anymore.
 
 **Installation**: from the command line run: 
@@ -80,6 +82,27 @@ performance = hyperparameter_tuning(data, "target_col_name", n_timesteps=12, n_h
 # case where want to select both variables and hyperparameters for the model
 performance = select_model(data, "target_col_name", n_timesteps=12, n_hidden_grid=[10,20])
 
+```
+
+## Prediction uncertainty
+Produce estimates along with lower and upper bounds of an uncertainty interval. See the example Jupyter Notebook for more information on the methodology employed.
+
+```python
+from nowcast_lstm.LSTM import LSTM
+
+# where model = a trained model
+model.interval_predict(
+        test_data,
+        interval = 0.95 # float from 0 to 1, how large to make intervals (higher = larger)
+    )
+    
+# predictions on synthetic vintages
+model.ragged_interval_predict(
+	pub_lags,
+	lag,
+	test_data,
+	interval = 0.95
+)
 ```
 
 ## LSTM parameters
