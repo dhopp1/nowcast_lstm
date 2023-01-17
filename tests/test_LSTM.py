@@ -2,7 +2,11 @@ import unittest
 import pandas as pd
 import numpy as np
 from nowcast_lstm import LSTM
-from nowcast_lstm.model_selection import variable_selection, hyperparameter_tuning, select_model
+from nowcast_lstm.model_selection import (
+    variable_selection,
+    hyperparameter_tuning,
+    select_model,
+)
 
 
 class TestDataSetup(unittest.TestCase):
@@ -86,58 +90,98 @@ class TestDataSetup(unittest.TestCase):
                 )
             ).all()
         )
-        
+
     def test_LSTM_feature_contribution(self):
         model2 = LSTM.LSTM(
             data=self.x, target_variable="target", n_timesteps=2, n_models=3
         )
         model2.train(quiet=True)
 
-        self.assertEqual(model2.feature_contribution().iloc[0,1], 1)
+        self.assertEqual(model2.feature_contribution().iloc[0, 1], 1)
         self.assertEqual(len(model2.feature_contribution()), 2)
-        
+
     def test_LSTM_variable_selection(self):
-        variables, perf = variable_selection(self.long_x, "target", 2, init_test_size=0.5, quiet=True, initial_ordering="feature_contribution")
-        self.assertEqual(variables, ['var1'])
-        
+        variables, perf = variable_selection(
+            self.long_x,
+            "target",
+            2,
+            init_test_size=0.5,
+            quiet=True,
+            initial_ordering="feature_contribution",
+        )
+        self.assertEqual(variables, ["var1"])
+
     def test_LSTM_variable_selection_univariate(self):
-        variables, perf = variable_selection(self.long_x, "target", 2, init_test_size=0.5, quiet=True, initial_ordering="univariate")
-        self.assertEqual(variables, ['var1'])
-        
+        variables, perf = variable_selection(
+            self.long_x,
+            "target",
+            2,
+            init_test_size=0.5,
+            quiet=True,
+            initial_ordering="univariate",
+        )
+        self.assertEqual(variables, ["var1"])
+
     def test_LSTM_hyperparameter_tuning(self):
-        results = hyperparameter_tuning(self.long_x, "target", 2, init_test_size=0.5, quiet=True, n_timesteps_grid=[2], train_episodes_grid=[10,20], batch_size_grid=[30], n_hidden_grid=[10], n_layers_grid=[1])
+        results = hyperparameter_tuning(
+            self.long_x,
+            "target",
+            2,
+            init_test_size=0.5,
+            quiet=True,
+            n_timesteps_grid=[2],
+            train_episodes_grid=[10, 20],
+            batch_size_grid=[30],
+            n_hidden_grid=[10],
+            n_layers_grid=[1],
+        )
         self.assertEqual(len(results), 2)
-        
+
     def test_LSTM_select_model(self):
-        results = select_model(self.long_x, "target", n_timesteps_grid=[2], n_layers_grid=[1,2], init_test_size=0.5, quiet=True, initial_ordering="feature_contribution")
+        results = select_model(
+            self.long_x,
+            "target",
+            n_timesteps_grid=[2],
+            n_layers_grid=[1, 2],
+            init_test_size=0.5,
+            quiet=True,
+            initial_ordering="feature_contribution",
+        )
         self.assertEqual(len(results), 2)
-        
+
     def test_LSTM_select_model_univariate(self):
-        results = select_model(self.long_x, "target", n_timesteps_grid=[2], n_layers_grid=[1,2], init_test_size=0.5, quiet=True, initial_ordering="univariate")
+        results = select_model(
+            self.long_x,
+            "target",
+            n_timesteps_grid=[2],
+            n_layers_grid=[1, 2],
+            init_test_size=0.5,
+            quiet=True,
+            initial_ordering="univariate",
+        )
         self.assertEqual(len(results), 2)
-        
+
     def test_LSTM_interval_predict(self):
         model2 = LSTM.LSTM(
             data=self.x, target_variable="target", n_timesteps=2, n_models=3
         )
         model2.train(quiet=True)
-        
+
         results = model2.interval_predict(model2.data)
 
         self.assertEqual(len(results), 2)
         self.assertEqual(len(results.columns), 5)
-        
+
     def test_LSTM_ragged_interval_predict(self):
         model2 = LSTM.LSTM(
             data=self.x, target_variable="target", n_timesteps=2, n_models=3
         )
         model2.train(quiet=True)
-        
-        results = model2.ragged_interval_predict([0,0], 0, model2.data)
+
+        results = model2.ragged_interval_predict([0, 0], 0, model2.data)
 
         self.assertEqual(len(results), 2)
         self.assertEqual(len(results.columns), 5)
-
 
 
 if __name__ == "__main__":

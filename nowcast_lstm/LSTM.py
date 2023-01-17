@@ -324,8 +324,15 @@ class LSTM:
             :scaled_contribution: contribution of feature to the model, scaled to 1 = most important feature
         """
         return self.modelling.feature_contribution(self)
-    
-    def interval_predict(self, data, interval=0.95, only_actuals_obs=False, start_date=None, end_date=None):
+
+    def interval_predict(
+        self,
+        data,
+        interval=0.95,
+        only_actuals_obs=False,
+        start_date=None,
+        end_date=None,
+    ):
         """Get predictions plus uncertainty intervals on a new dataset
 
         parameters:
@@ -342,14 +349,16 @@ class LSTM:
         if start_date is None:
             data_start_index = 0
         else:
-            data_start_index = data.index[data.date >= start_date].tolist()[0] - self.n_timesteps + 1
-        
+            data_start_index = (
+                data.index[data.date >= start_date].tolist()[0] - self.n_timesteps + 1
+            )
+
         if end_date is None:
             end_date = str(np.max(data.date))[:10]
-        
-        cut_data = data.iloc[data_start_index:,:].reset_index(drop=True)
+
+        cut_data = data.iloc[data_start_index:, :].reset_index(drop=True)
         cut_data = cut_data.loc[cut_data.date <= end_date, :].reset_index(drop=True)
-        
+
         dataset = self.data_setup.gen_dataset(
             cut_data,
             self.target_variable,
@@ -370,7 +379,7 @@ class LSTM:
         preds = []
         for i in range(self.n_models):
             preds.append(self.modelling.predict(X, self.mv_lstm[i]))
-            
+
         point_preds = list(np.mean(preds, axis=0))
 
         prediction_df = pd.DataFrame(
@@ -381,45 +390,61 @@ class LSTM:
                 "actuals": y,
                 "point_predictions": point_preds,
                 "lower_interval": np.nan,
-                "upper_interval": np.nan
+                "upper_interval": np.nan,
             }
         )
-            
-        # data availabilities 
-        availabilities = [ip.calc_perc_available(self, data, target_period) for target_period in prediction_df.date]
-        
+
+        # data availabilities
+        availabilities = [
+            ip.calc_perc_available(self, data, target_period)
+            for target_period in prediction_df.date
+        ]
+
         # standard deviations of the chosen interval (from a normal distribution)
         sds = ip.calc_sds(interval)
-        
+
         # standard deviation of target variable
         target_sd = np.std(data[self.target_variable])
-        
+
         # predictions
         interval_preds = [
             ip.single_interval_predict(
-                sample = np.array(preds)[:,i], 
-                sds = sds,
-                target_sd = target_sd,
-                availability = availabilities[i], 
-                interval = interval
+                sample=np.array(preds)[:, i],
+                sds=sds,
+                target_sd=target_sd,
+                availability=availabilities[i],
+                interval=interval,
             )
             for i in range(len(availabilities))
         ]
-        
-        final_df = pd.DataFrame({
-            "date": prediction_df.date,
-            "actuals": prediction_df.actuals,
-            "predictions": [x[0] for x in interval_preds],
-            "lower_interval": [x[1] for x in interval_preds],
-            "upper_interval": [x[2] for x in interval_preds]
-        })
-        
+
+        final_df = pd.DataFrame(
+            {
+                "date": prediction_df.date,
+                "actuals": prediction_df.actuals,
+                "predictions": [x[0] for x in interval_preds],
+                "lower_interval": [x[1] for x in interval_preds],
+                "upper_interval": [x[2] for x in interval_preds],
+            }
+        )
+
         if only_actuals_obs:
-            final_df = final_df.loc[~pd.isna(final_df.actuals), :].reset_index(drop=True)
-        
-        return (final_df)
-    
-    def ragged_interval_predict(self, pub_lags, lag, data, interval=0.95, only_actuals_obs=False, start_date=None, end_date=None):
+            final_df = final_df.loc[~pd.isna(final_df.actuals), :].reset_index(
+                drop=True
+            )
+
+        return final_df
+
+    def ragged_interval_predict(
+        self,
+        pub_lags,
+        lag,
+        data,
+        interval=0.95,
+        only_actuals_obs=False,
+        start_date=None,
+        end_date=None,
+    ):
         """Get predictions plus uncertainty intervals on artificial vintages
 
         parameters:
@@ -438,22 +463,30 @@ class LSTM:
         if start_date is None:
             data_start_index = 0
         else:
-            data_start_index = data.index[data.date >= start_date].tolist()[0] - self.n_timesteps + 1
-        
+            data_start_index = (
+                data.index[data.date >= start_date].tolist()[0] - self.n_timesteps + 1
+            )
+
         if end_date is None:
             end_date = str(np.max(data.date))[:10]
-        
-        cut_data = data.iloc[data_start_index:,:].reset_index(drop=True)
+
+        cut_data = data.iloc[data_start_index:, :].reset_index(drop=True)
         cut_data = cut_data.loc[cut_data.date <= end_date, :].reset_index(drop=True)
-        
-        X, y, date_series  = self.gen_ragged_X(pub_lags=pub_lags, lag=lag, data=cut_data, start_date=start_date, end_date=end_date)
+
+        X, y, date_series = self.gen_ragged_X(
+            pub_lags=pub_lags,
+            lag=lag,
+            data=cut_data,
+            start_date=start_date,
+            end_date=end_date,
+        )
         date_series = pd.Series(date_series)
 
         # predictions on every model
         preds = []
         for i in range(self.n_models):
             preds.append(self.modelling.predict(X, self.mv_lstm[i]))
-            
+
         point_preds = list(np.mean(preds, axis=0))
 
         prediction_df = pd.DataFrame(
@@ -464,58 +497,66 @@ class LSTM:
                 "actuals": y,
                 "point_predictions": point_preds,
                 "lower_interval": np.nan,
-                "upper_interval": np.nan
+                "upper_interval": np.nan,
             }
         )
-            
-        # data availabilities 
+
+        # data availabilities
         # function to lag data
         def lag_data(target_variable, pub_lags, data, last_date, lag):
             import numpy as np
-            
-            final = data.loc[data.date <= last_date,:].reset_index(drop=True)
+
+            final = data.loc[data.date <= last_date, :].reset_index(drop=True)
             tmp = final.drop(["date", target_variable], axis=1)
             for i in range(len(tmp.columns)):
                 tmp_lag = pub_lags[i]
                 # go back as far as needed for the pub_lag of the variable, then + the lag (so -2 for 2 months back), also -1 because 0 lag means in month, last month data available, not current month in
                 final.loc[(len(final) - tmp_lag + lag - 1) :, tmp.columns[i]] = np.nan
-            return (final)
-        
+            return final
+
         availability_dfs = []
         for i in range(len(prediction_df.date)):
-            availability_df = lag_data(self.target_variable, pub_lags, data, prediction_df.date[i], lag)
+            availability_df = lag_data(
+                self.target_variable, pub_lags, data, prediction_df.date[i], lag
+            )
             availability_dfs.append(availability_df)
-        
-        availabilities = [ip.calc_perc_available(self, availability_dfs[i], prediction_df.date[i]) for i in range(len(prediction_df.date))]
-        
+
+        availabilities = [
+            ip.calc_perc_available(self, availability_dfs[i], prediction_df.date[i])
+            for i in range(len(prediction_df.date))
+        ]
+
         # standard deviations of the chosen interval (from a normal distribution)
         sds = ip.calc_sds(interval)
-        
+
         # standard deviation of target variable
         target_sd = np.std(data[self.target_variable])
-        
+
         # predictions
         interval_preds = [
             ip.single_interval_predict(
-                sample = np.array(preds)[:,i], 
-                sds = sds,
-                target_sd = target_sd,
-                availability = availabilities[i], 
-                interval = interval
+                sample=np.array(preds)[:, i],
+                sds=sds,
+                target_sd=target_sd,
+                availability=availabilities[i],
+                interval=interval,
             )
             for i in range(len(availabilities))
         ]
-        
-        final_df = pd.DataFrame({
-            "date": prediction_df.date,
-            "actuals": prediction_df.actuals,
-            "predictions": [x[0] for x in interval_preds],
-            "lower_interval": [x[1] for x in interval_preds],
-            "upper_interval": [x[2] for x in interval_preds]
-        })
-        
+
+        final_df = pd.DataFrame(
+            {
+                "date": prediction_df.date,
+                "actuals": prediction_df.actuals,
+                "predictions": [x[0] for x in interval_preds],
+                "lower_interval": [x[1] for x in interval_preds],
+                "upper_interval": [x[2] for x in interval_preds],
+            }
+        )
+
         if only_actuals_obs:
-            final_df = final_df.loc[~pd.isna(final_df.actuals), :].reset_index(drop=True)
-        
+            final_df = final_df.loc[~pd.isna(final_df.actuals), :].reset_index(
+                drop=True
+            )
+
         return final_df
-        

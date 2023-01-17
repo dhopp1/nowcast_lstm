@@ -250,22 +250,22 @@ def variable_selection(
         )
     elif initial_ordering == "feature_contribution":
         model = LSTM(
-                data,
-                target_variable,
-                n_timesteps,
-                fill_na_func,
-                fill_ragged_edges_func,
-                n_models,
-                train_episodes,
-                batch_size,
-                decay,
-                n_hidden,
-                n_layers,
-                dropout,
-                criterion,
-                optimizer,
-                optimizer_parameters,
-            )
+            data,
+            target_variable,
+            n_timesteps,
+            fill_na_func,
+            fill_ragged_edges_func,
+            n_models,
+            train_episodes,
+            batch_size,
+            decay,
+            n_hidden,
+            n_layers,
+            dropout,
+            criterion,
+            optimizer,
+            optimizer_parameters,
+        )
         model.train(quiet=True)
         column_order = list(model.feature_contribution().feature.values)
 
