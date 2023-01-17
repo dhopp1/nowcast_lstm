@@ -304,21 +304,21 @@ def gen_ragged_X(
     """Produce vintage model inputs given the period lag of different variables, for use when testing historical performance (model evaluation, etc.)
 
     parameters:
-            :X: numpy array: n x m+1 array, second output of `gen_model_input` function, `for_ragged_dataset`, passed through the `gen_model_input` function
-            :pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
-    :lag: int: simulated periods back, interpretable as last complete period relative to target period. E.g. -2 = simulating data as it would have been 1 month before target period, i.e. 2 months ago is last complete period.
-    :for_ragged_dataset: numpy array: the original full ragged dataset, output of `gen_dataset` function, `for_ragged_dataset`
-    :target_variable: str: the target variable of this dataset
-    :fill_ragged_edges: function: which function to fill ragged edges with, "ARMA" for ARMA model
-    :backup_fill_method: function: which function to fill ragged edges with in case ARMA can't be estimated. Should be the same as originally passed to `gen_dataset` function
-    :other_dataset: numpy array: other dataframe from which to calculate the fill NA values, i.e. a training dataset. Output of `gen_dataset` function, `other_dataset`
-    :for_full_arma_dataset: numpy array: data to fit the ARMA model on
-    :dates: pandas Series: list of dates for the data
-    :start_date: str in "YYYY-MM-DD" format: start date of generating ragged preds. To save calculation time, i.e. just calculating after testing date instead of all dates
-    :end_date: str in "YYYY-MM-DD" format: end date of generating ragged preds
+        :X: numpy array: n x m+1 array, second output of `gen_model_input` function, `for_ragged_dataset`, passed through the `gen_model_input` function
+        :pub_lags: list[int]: list of periods back each input variable is set to missing. I.e. publication lag of the variable.
+        :lag: int: simulated periods back, interpretable as last complete period relative to target period. E.g. -2 = simulating data as it would have been 1 month before target period, i.e. 2 months ago is last complete period.
+        :for_ragged_dataset: numpy array: the original full ragged dataset, output of `gen_dataset` function, `for_ragged_dataset`
+        :target_variable: str: the target variable of this dataset
+        :fill_ragged_edges: function: which function to fill ragged edges with, "ARMA" for ARMA model
+        :backup_fill_method: function: which function to fill ragged edges with in case ARMA can't be estimated. Should be the same as originally passed to `gen_dataset` function
+        :other_dataset: numpy array: other dataframe from which to calculate the fill NA values, i.e. a training dataset. Output of `gen_dataset` function, `other_dataset`
+        :for_full_arma_dataset: numpy array: data to fit the ARMA model on
+        :dates: pandas Series: list of dates for the data
+        :start_date: str in "YYYY-MM-DD" format: start date of generating ragged preds. To save calculation time, i.e. just calculating after testing date instead of all dates
+        :end_date: str in "YYYY-MM-DD" format: end date of generating ragged preds
 
     output:
-            :return: numpy array equivalent in shape to X input, but with trailing edges set to NA then filled
+        :return: numpy array equivalent in shape to X input, but with trailing edges set to NA then filled
     """
     # to get fill_na values based on either this dataframe or another (training)
     if other_dataset is None:

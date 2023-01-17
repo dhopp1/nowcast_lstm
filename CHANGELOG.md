@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.2.2
+
+### Added
+
+* ability to generate uncertainty intervals via the `model.interval_predict()` function
+* ability to generate uncertainty intervals on synthetic vintages via the `model.ragged_interval_predict()` function
+
 ## 0.2.1
 
 ### Added
