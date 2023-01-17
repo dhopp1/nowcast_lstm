@@ -441,7 +441,6 @@ class LSTM:
         lag,
         data,
         interval=0.95,
-        only_actuals_obs=False,
         start_date=None,
         end_date=None,
     ):
@@ -452,7 +451,6 @@ class LSTM:
             :lag: int: simulated periods back. E.g. -2 = simulating data as it would have been 2 months before target period, 1 = 1 month after, etc.
             :data: pandas DataFrame: data to predict fitted model on
             :interval: float: float between 0 and 1, uncertainty interval. A closer number to one gives a higher uncertainty interval. E.g., 0.95 (95%) will give larger bands than 0.5 (50%)
-            :only_actuals_obs: boolean: whether or not to predict observations without a target actual
             :start_date: str in "YYYY-MM-DD" format: start date of generating interval predictions. To save calculation time, i.e. just calculating after testing date instead of all dates
             :end_date: str in "YYYY-MM-DD" format: end date of generating interval predictions
 
@@ -462,6 +460,7 @@ class LSTM:
         # filter for desired dates
         if start_date is None:
             data_start_index = 0
+            start_date = str(np.min(data.date))[:10]
         else:
             data_start_index = (
                 data.index[data.date >= start_date].tolist()[0] - self.n_timesteps + 1
@@ -553,10 +552,5 @@ class LSTM:
                 "upper_interval": [x[2] for x in interval_preds],
             }
         )
-
-        if only_actuals_obs:
-            final_df = final_df.loc[~pd.isna(final_df.actuals), :].reset_index(
-                drop=True
-            )
-
+        
         return final_df
