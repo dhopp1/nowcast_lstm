@@ -44,7 +44,7 @@ class TestDataSetup(unittest.TestCase):
         self.assertEqual(len(self.model.predict(self.model.data)), 2)
 
     def test_LSTM_newdata(self):
-        new_x = self.x
+        new_x = self.x.copy()
         new_x.iloc[
             1:, 3
         ] = np.nan  # simulating no actuals for this, still able to predict
@@ -115,6 +115,30 @@ class TestDataSetup(unittest.TestCase):
     def test_LSTM_select_model_univariate(self):
         results = select_model(self.long_x, "target", n_timesteps_grid=[2], n_layers_grid=[1,2], init_test_size=0.5, quiet=True, initial_ordering="univariate")
         self.assertEqual(len(results), 2)
+        
+    def test_LSTM_interval_predict(self):
+        model2 = LSTM.LSTM(
+            data=self.x, target_variable="target", n_timesteps=2, n_models=3
+        )
+        model2.train(quiet=True)
+        
+        results = model2.interval_predict(model2.data)
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(len(results.columns), 5)
+        
+    def test_LSTM_ragged_interval_predict(self):
+        model2 = LSTM.LSTM(
+            data=self.x, target_variable="target", n_timesteps=2, n_models=3
+        )
+        model2.train(quiet=True)
+        
+        results = model2.ragged_interval_predict([0,0], 0, model2.data)
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(len(results.columns), 5)
+
+
 
 if __name__ == "__main__":
     unittest.main()

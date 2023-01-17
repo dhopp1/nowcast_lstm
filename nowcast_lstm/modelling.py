@@ -19,19 +19,19 @@ def instantiate_model(
     """Create the network, criterion, and optimizer objects necessary for training a model
 
     parameters:
-            :model_input: numpy array: output of `gen_model_input` function, first entry in tuple (X)
-            :n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
-            :n_hidden: int: number of hidden states in the network
-            :n_layers: int: number of LSTM layers in the network
-            :dropout: float: dropout rate between the LSTM layers
-            :lr: float: learning rate
-            :criterion: torch loss criterion, defaults to MAE
-            :optimizer: torch optimizer, defaults to Adam
+        :model_input: numpy array: output of `gen_model_input` function, first entry in tuple (X)
+        :n_timesteps: how many historical periods to consider when training the model. For example if the original data is monthly, n_steps=12 would consider data for the last year.
+        :n_hidden: int: number of hidden states in the network
+        :n_layers: int: number of LSTM layers in the network
+        :dropout: float: dropout rate between the LSTM layers
+        :lr: float: learning rate
+        :criterion: torch loss criterion, defaults to MAE
+        :optimizer: torch optimizer, defaults to Adam
 
     output: Dict
-            :mv_lstm: torch network
-            :criterion: torch criterion
-            :optimizer: torch optimizer
+        :mv_lstm: torch network
+        :criterion: torch criterion
+        :optimizer: torch optimizer
     """
 
     n_features = model_x_input.shape[
@@ -91,22 +91,22 @@ def train_model(
     """Train the network
 
     parameters:
-            :X: numpy array: output of `gen_model_input` function, first entry in tuple (X), input variables
-            :y: numpy array: output of `gen_model_input` function, second entry in tuple (y), targets
-            :mv_lstm: torch network: output of `instantiate_model` function, "mv_lstm" entry
-            :criterion: torch criterion: output of `instantiate_model` function, "criterion" entry, MAE is default
-            :optimizer: torch optimizer: output of `instantiate_model` function, "optimizer" entry, Adam is default
-            :train_episodes: int: number of epochs/episodes to train the model
-            :batch_size: int: number of observations per training batch
-            :decay: float: learning rate decay
-    :num_workers: int: number of workers for multi-process data loading
-    :shuffle: boolean: whether to shuffle data at every epoch
-            :quiet: boolean: whether or not to print the losses in the epoch loop
+        :X: numpy array: output of `gen_model_input` function, first entry in tuple (X), input variables
+        :y: numpy array: output of `gen_model_input` function, second entry in tuple (y), targets
+        :mv_lstm: torch network: output of `instantiate_model` function, "mv_lstm" entry
+        :criterion: torch criterion: output of `instantiate_model` function, "criterion" entry, MAE is default
+        :optimizer: torch optimizer: output of `instantiate_model` function, "optimizer" entry, Adam is default
+        :train_episodes: int: number of epochs/episodes to train the model
+        :batch_size: int: number of observations per training batch
+        :decay: float: learning rate decay
+        :num_workers: int: number of workers for multi-process data loading
+        :shuffle: boolean: whether to shuffle data at every epoch
+        :quiet: boolean: whether or not to print the losses in the epoch loop
 
     output:
-            :return: Dict
-                    :mv_lstm: trained network
-                    :train_loss: list of losses per epoch, for informational purposes
+        :return: Dict
+            :mv_lstm: trained network
+            :train_loss: list of losses per epoch, for informational purposes
     """
 
     # CUDA if available
@@ -158,11 +158,11 @@ def predict(X, mv_lstm):
     """Make predictions on a trained network
 
     parameters:
-            :X: numpy array: output of `gen_model_input` function, first entry in tuple (X), input variables
-            :mv_lstm: torch network: output of `train_model` function, "mv_lstm" entry, trained network
+        :X: numpy array: output of `gen_model_input` function, first entry in tuple (X), input variables
+        :mv_lstm: torch network: output of `train_model` function, "mv_lstm" entry, trained network
 
     output:
-            :return: np array: array of predictions
+        :return: np array: array of predictions
     """
     with torch.no_grad():
         inpt = torch.tensor(X, dtype=torch.float32)
