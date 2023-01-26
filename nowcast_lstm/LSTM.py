@@ -108,6 +108,8 @@ class LSTM:
         self.mv_lstm = []
         self.train_loss = []
 
+        self.feature_contribution_values = None
+
     def train(self, num_workers=0, shuffle=False, quiet=False):
         """train the model
 
@@ -323,7 +325,9 @@ class LSTM:
             :feature: column name
             :scaled_contribution: contribution of feature to the model, scaled to 1 = most important feature
         """
-        return self.modelling.feature_contribution(self)
+        if self.feature_contribution_values is None:
+            self.feature_contribution_values = self.modelling.feature_contribution(self)
+        return self.feature_contribution_values
 
     def interval_predict(
         self,
@@ -332,6 +336,7 @@ class LSTM:
         only_actuals_obs=False,
         start_date=None,
         end_date=None,
+        data_availability_weight_scheme="fc",
     ):
         """Get predictions plus uncertainty intervals on a new dataset
 
@@ -341,6 +346,7 @@ class LSTM:
             :only_actuals_obs: boolean: whether or not to predict observations without a target actual
             :start_date: str in "YYYY-MM-DD" format: start date of generating interval predictions. To save calculation time, i.e. just calculating after testing date instead of all dates
             :end_date: str in "YYYY-MM-DD" format: end date of generating interval predictions
+            :data_availability_weight_scheme: str: weighting scheme for data avilability. "fc" for weighting variables by feature contribution, "equal" for weighting each equally.
 
         output:
             :return: pandas DataFrame of actuals, point predictions, lower and upper uncertainty intervals.
@@ -395,8 +401,18 @@ class LSTM:
         )
 
         # data availabilities
+        if data_availability_weight_scheme == "fc":
+            if self.feature_contribution_values is None:
+                self.feature_contribution()
+            columns = list(self.feature_contribution_values.feature.values)
+            weights = list(self.feature_contribution_values.scaled_contribution.values)
+        else:
+            columns = list(data.drop(["date", self.target_variable], axis=1).columns)
+            weights = [1 for i in range(len(columns))]
+        weight_dict = {columns[i]: weights[i] for i in range(len(columns))}
+
         availabilities = [
-            ip.calc_perc_available(self, data, target_period)
+            ip.calc_perc_available(self, data, target_period, weight_dict)
             for target_period in prediction_df.date
         ]
 
@@ -443,6 +459,7 @@ class LSTM:
         interval=0.95,
         start_date=None,
         end_date=None,
+        data_availability_weight_scheme="fc",
     ):
         """Get predictions plus uncertainty intervals on artificial vintages
 
@@ -453,6 +470,7 @@ class LSTM:
             :interval: float: float between 0 and 1, uncertainty interval. A closer number to one gives a higher uncertainty interval. E.g., 0.95 (95%) will give larger bands than 0.5 (50%)
             :start_date: str in "YYYY-MM-DD" format: start date of generating interval predictions. To save calculation time, i.e. just calculating after testing date instead of all dates
             :end_date: str in "YYYY-MM-DD" format: end date of generating interval predictions
+            :data_availability_weight_scheme: str: weighting scheme for data avilability. "fc" for weighting variables by feature contribution, "equal" for weighting each equally.
 
         output:
             :return: pandas DataFrame of actuals, point predictions, lower and upper uncertainty intervals.
@@ -520,8 +538,21 @@ class LSTM:
             )
             availability_dfs.append(availability_df)
 
+        # data availability weights
+        if data_availability_weight_scheme == "fc":
+            if self.feature_contribution_values is None:
+                self.feature_contribution()
+            columns = list(self.feature_contribution_values.feature.values)
+            weights = list(self.feature_contribution_values.scaled_contribution.values)
+        else:
+            columns = list(data.drop(["date", self.target_variable], axis=1).columns)
+            weights = [1 for i in range(len(columns))]
+        weight_dict = {columns[i]: weights[i] for i in range(len(columns))}
+
         availabilities = [
-            ip.calc_perc_available(self, availability_dfs[i], prediction_df.date[i])
+            ip.calc_perc_available(
+                self, availability_dfs[i], prediction_df.date[i], weight_dict
+            )
             for i in range(len(prediction_df.date))
         ]
 
@@ -552,5 +583,5 @@ class LSTM:
                 "upper_interval": [x[2] for x in interval_preds],
             }
         )
-        
+
         return final_df

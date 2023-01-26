@@ -60,7 +60,7 @@ def calc_sds(x):
     return sds
 
 
-def calc_perc_available(model, data, target_period):
+def calc_perc_available(model, data, target_period, weight_dict):
     """Calculate the proportion of data available to the model, ratio of actually available data versus theoretical maximum data available
     parameters:
         :model: LSTM.LSTM: trained LSTM model
@@ -102,8 +102,8 @@ def calc_perc_available(model, data, target_period):
                 ~pd.isna(tmp.iloc[-(model.n_timesteps) :, :].loc[:, col].values)
             )  # number of obvs actually available
 
-            n_max += col_max
-            n_available += col_available
+            n_max += col_max * weight_dict[col]
+            n_available += col_available * weight_dict[col]
 
     return n_available / n_max
 
