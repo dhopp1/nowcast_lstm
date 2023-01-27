@@ -356,14 +356,18 @@ class LSTM:
             data_start_index = 0
         else:
             data_start_index = (
-                data.index[data.date >= start_date].tolist()[0] - self.n_timesteps + 1
+                data.index[data[self.date_series.columns[0]] >= start_date].tolist()[0]
+                - self.n_timesteps
+                + 1
             )
 
         if end_date is None:
-            end_date = str(np.max(data.date))[:10]
+            end_date = str(np.max(data[self.date_series.columns[0]]))[:10]
 
         cut_data = data.iloc[data_start_index:, :].reset_index(drop=True)
-        cut_data = cut_data.loc[cut_data.date <= end_date, :].reset_index(drop=True)
+        cut_data = cut_data.loc[
+            cut_data[self.date_series.columns[0]] <= end_date, :
+        ].reset_index(drop=True)
 
         dataset = self.data_setup.gen_dataset(
             cut_data,
@@ -407,7 +411,11 @@ class LSTM:
             columns = list(self.feature_contribution_values.feature.values)
             weights = list(self.feature_contribution_values.scaled_contribution.values)
         else:
-            columns = list(data.drop(["date", self.target_variable], axis=1).columns)
+            columns = list(
+                data.drop(
+                    [self.date_series.columns[0], self.target_variable], axis=1
+                ).columns
+            )
             weights = [1 for i in range(len(columns))]
         weight_dict = {columns[i]: weights[i] for i in range(len(columns))}
 
@@ -478,17 +486,21 @@ class LSTM:
         # filter for desired dates
         if start_date is None:
             data_start_index = 0
-            start_date = str(np.min(data.date))[:10]
+            start_date = str(np.min(data[self.date_series.columns[0]]))[:10]
         else:
             data_start_index = (
-                data.index[data.date >= start_date].tolist()[0] - self.n_timesteps + 1
+                data.index[data[self.date_series.columns[0]] >= start_date].tolist()[0]
+                - self.n_timesteps
+                + 1
             )
 
         if end_date is None:
-            end_date = str(np.max(data.date))[:10]
+            end_date = str(np.max(data[self.date_series.columns[0]]))[:10]
 
         cut_data = data.iloc[data_start_index:, :].reset_index(drop=True)
-        cut_data = cut_data.loc[cut_data.date <= end_date, :].reset_index(drop=True)
+        cut_data = cut_data.loc[
+            cut_data[self.date_series.columns[0]] <= end_date, :
+        ].reset_index(drop=True)
 
         X, y, date_series = self.gen_ragged_X(
             pub_lags=pub_lags,
@@ -523,8 +535,10 @@ class LSTM:
         def lag_data(target_variable, pub_lags, data, last_date, lag):
             import numpy as np
 
-            final = data.loc[data.date <= last_date, :].reset_index(drop=True)
-            tmp = final.drop(["date", target_variable], axis=1)
+            final = data.loc[
+                data[self.date_series.columns[0]] <= last_date, :
+            ].reset_index(drop=True)
+            tmp = final.drop([self.date_series.columns[0], target_variable], axis=1)
             for i in range(len(tmp.columns)):
                 tmp_lag = pub_lags[i]
                 # go back as far as needed for the pub_lag of the variable, then + the lag (so -2 for 2 months back), also -1 because 0 lag means in month, last month data available, not current month in
@@ -545,7 +559,11 @@ class LSTM:
             columns = list(self.feature_contribution_values.feature.values)
             weights = list(self.feature_contribution_values.scaled_contribution.values)
         else:
-            columns = list(data.drop(["date", self.target_variable], axis=1).columns)
+            columns = list(
+                data.drop(
+                    [self.date_series.columns[0], self.target_variable], axis=1
+                ).columns
+            )
             weights = [1 for i in range(len(columns))]
         weight_dict = {columns[i]: weights[i] for i in range(len(columns))}
 

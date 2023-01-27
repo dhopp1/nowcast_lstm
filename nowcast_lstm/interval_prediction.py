@@ -69,23 +69,31 @@ def calc_perc_available(model, data, target_period, weight_dict):
     output:
         :return: float of proportion of data available versus theoretical maximum
     """
+    # name of date column
+
     # number of unique periods (months) in the total dataset
-    n_unique_total = len(np.unique([str(x)[5:] for x in model.data.loc[:, "date"]]))
+    n_unique_total = len(
+        np.unique([str(x)[5:] for x in model.data.loc[:, model.date_series.columns[0]]])
+    )
 
     # only data before target peiod
-    tmp = data.loc[data.date <= target_period, :].reset_index(drop=True)
+    tmp = data.loc[data[model.date_series.columns[0]] <= target_period, :].reset_index(
+        drop=True
+    )
 
     n_max = 0  # max number of datapoints if all were present
     n_available = 0  # number actually present in the data
     for col in tmp.columns:
-        if not (col in ["date", model.target_variable]):
+        if not (col in [model.date_series.columns[0], model.target_variable]):
             # unique months for this column
             try:
                 n_unique_col = len(
                     np.unique(
                         [
                             str(x)[5:]
-                            for x in model.data.loc[~pd.isna(data[col]), "date"]
+                            for x in model.data.loc[
+                                ~pd.isna(data[col]), model.date_series.columns[0]
+                            ]
                         ]
                     )
                 )
