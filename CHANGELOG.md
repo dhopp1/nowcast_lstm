@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.2.3
+
+### Added
+
+* feature contribution weighting for data availabilty in interval predict functions
+
+### Fixed
+
+* got rid of hardcoded references to _date_ column in interval predict code
+
 ## 0.2.2
 
 ### Added
