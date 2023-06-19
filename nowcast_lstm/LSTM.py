@@ -61,6 +61,13 @@ class LSTM:
         self.modelling = import_module("nowcast_lstm.modelling")
 
         self.data = data.reset_index(drop=True)
+        # check for columns with no data in them
+        self.no_data_cols = [col for col in self.data.columns if self.data[col].isnull().sum() / len(self.data) == 1.0]
+        if (len(self.no_data_cols) > 0):
+            for col in self.no_data_cols:
+                self.data[col] = 0.0
+            print(f"The following columns had no data in them and their values were replaced with 0: {str(self.no_data_cols)}")
+        
         self.target_variable = target_variable
         self.n_timesteps = n_timesteps
 
