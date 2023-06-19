@@ -40,6 +40,8 @@ The main object and functionality of the library comes from the `LSTM` object. G
 ```python
 from nowcast_lstm.LSTM import LSTM
 
+# note that if a column has no data in it, i.e., is all NAs, its values will be replaced with 0. This won't affect model performance and will ensure that the model can still be trained
+# a list of columns with no data in them can be accessed with `model.no_data_cols`
 model = LSTM(data, "target_col_name", n_timesteps=12) # default parameters with 12 timestep history
 
 model.X # array of the transformed training dataset

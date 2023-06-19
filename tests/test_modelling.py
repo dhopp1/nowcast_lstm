@@ -58,7 +58,7 @@ class TestModelling(unittest.TestCase):
         )
         self.assertEqual(
             str((result["optimizer"])).strip("\n"),
-            "SGD (\nParameter Group 0\n    dampening: 0\n    lr: 0.001\n    momentum: 0\n    nesterov: False\n    weight_decay: 0.96\n)".strip(
+            "SGD (\nParameter Group 0\n    dampening: 0\n    differentiable: False\n    foreach: None\n    lr: 0.001\n    maximize: False\n    momentum: 0\n    nesterov: False\n    weight_decay: 0.96\n)".strip(
                 "\n"
             ),
         )

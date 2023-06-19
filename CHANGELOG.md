@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.2.4
+
+### Added
+
+* make model instantiation and model selection robust to variables with no data in them
+
 ## 0.2.3
 
 ### Added

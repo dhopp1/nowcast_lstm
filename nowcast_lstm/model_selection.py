@@ -76,15 +76,23 @@ def univariate_order(
     "univariate runs to determine order for additive variable selection"
 
     data = data.copy()
-
+    
+    # fold train indices
+    end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
+    
+    # check for columns with not enough data for the train set
+    shortest_train = data.loc[: end_train_indices[0], :]
+    no_data_cols = [col for col in shortest_train.columns if shortest_train[col].isnull().sum() / len(shortest_train) == 1.0]
+    if (len(no_data_cols) > 0):
+        for col in no_data_cols:
+            data[col] = 0.0
+    
     # columns to assess, excluding date column and target variable
     columns = list(data.columns[data.columns != target_variable][1:])
 
     # initializing performance dictionary
     performance = dict.fromkeys(columns, [])
 
-    # fold train indices
-    end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
 
     # defining RMSE and MAE
     if performance_metric == "RMSE":
@@ -105,6 +113,7 @@ def univariate_order(
 
         for fold in range(n_folds):
             train = data.loc[: end_train_indices[fold], ["date", target_variable, col]]
+            # checking for columns with not enough data in them for the train set
 
             n_obs = len(
                 train.loc[~pd.isna(train[target_variable]), :].reset_index(drop=True)
@@ -223,6 +232,16 @@ def variable_selection(
     """
 
     data = data.copy()
+    
+    # fold train indices
+    end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
+    
+    # check for columns with not enough data for the train set
+    shortest_train = data.loc[: end_train_indices[0], :]
+    no_data_cols = [col for col in shortest_train.columns if shortest_train[col].isnull().sum() / len(shortest_train) == 1.0]
+    if (len(no_data_cols) > 0):
+        for col in no_data_cols:
+            data[col] = 0.0
 
     if initial_ordering == "univariate":
         column_order = univariate_order(
@@ -271,9 +290,6 @@ def variable_selection(
 
     # columns to assess, excluding date column and target variable, used for pub_lags
     all_columns = list(data.columns[data.columns != target_variable][1:])
-
-    # fold train indices
-    end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
 
     # defining RMSE and MAE
     if performance_metric == "RMSE":
@@ -412,6 +428,9 @@ def variable_selection(
             if performance[-1] < np.min(performance[:-1]):
                 end_variables = end_variables + [col]
 
+    # ensure can't pick a column with no data
+    end_variables = [col for col in end_variables if col not in no_data_cols]    
+
     return end_variables, np.min(performance)
 
 
@@ -458,6 +477,13 @@ def hyperparameter_tuning(
 
     # fold train indices
     end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
+    
+    # check for columns with not enough data for the train set
+    shortest_train = data.loc[: end_train_indices[0], :]
+    no_data_cols = [col for col in shortest_train.columns if shortest_train[col].isnull().sum() / len(shortest_train) == 1.0]
+    if (len(no_data_cols) > 0):
+        for col in no_data_cols:
+            data[col] = 0.0
 
     # defining RMSE and MAE
     if performance_metric == "RMSE":

@@ -66,7 +66,6 @@ class LSTM:
         if (len(self.no_data_cols) > 0):
             for col in self.no_data_cols:
                 self.data[col] = 0.0
-            print(f"The following columns had no data in them and their values were replaced with 0: {str(self.no_data_cols)}")
         
         self.target_variable = target_variable
         self.n_timesteps = n_timesteps
