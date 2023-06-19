@@ -77,10 +77,10 @@ from nowcast_lstm.model_selection import variable_selection, hyperparameter_tuni
 selected_variables = variable_selection(data, "target_col_name", n_timesteps=12) # default parameters with 12 timestep history
 
 # case where given variables, want to select hyperparameters
-performance = hyperparameter_tuning(data, "target_col_name", n_timesteps=12, n_hidden_grid=[10,20])
+performance = hyperparameter_tuning(data, "target_col_name", n_timesteps_grid=[12], n_hidden_grid=[10,20])
 
 # case where want to select both variables and hyperparameters for the model
-performance = select_model(data, "target_col_name", n_timesteps=12, n_hidden_grid=[10,20])
+performance = select_model(data, "target_col_name", n_timesteps_grid=[12], n_hidden_grid=[10,20])
 
 ```
 
