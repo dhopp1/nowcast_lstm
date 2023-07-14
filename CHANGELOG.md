@@ -1,5 +1,8 @@
 # Change Log
 
+## 0.2.5
+* fixed `init_test_size` of model selection functions working on the full dataset including NAs in the target variable
+
 ## 0.2.4
 
 ### Added

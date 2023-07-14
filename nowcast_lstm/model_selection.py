@@ -77,6 +77,11 @@ def univariate_order(
 
     data = data.copy()
     
+    # first valid index of target variable
+    start_index = data.loc[lambda x: ~pd.isna(x[target_variable]), :].index[0]
+    start_index = np.max([0, start_index - n_timesteps + 1]) # where to start the data considering n_timesteps
+    data = data.loc[start_index:, :].reset_index(drop = True)
+    
     # fold train indices
     end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
     
@@ -232,6 +237,11 @@ def variable_selection(
     """
 
     data = data.copy()
+    
+    # first valid index of target variable
+    start_index = data.loc[lambda x: ~pd.isna(x[target_variable]), :].index[0]
+    start_index = np.max([0, start_index - n_timesteps + 1]) # where to start the data considering n_timesteps
+    data = data.loc[start_index:, :].reset_index(drop = True)
     
     # fold train indices
     end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
@@ -472,6 +482,11 @@ def hyperparameter_tuning(
     """
 
     data = data.copy()
+    
+    # first valid index of target variable
+    start_index = data.loc[lambda x: ~pd.isna(x[target_variable]), :].index[0]
+    start_index = np.max([0, start_index - np.max(n_timesteps_grid) + 1]) # where to start the data considering n_timesteps
+    data = data.loc[start_index:, :].reset_index(drop = True)
 
     alpha = 0.0  # legacy to work with same variable selection code
 
