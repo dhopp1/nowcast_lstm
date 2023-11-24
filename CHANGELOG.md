@@ -1,6 +1,11 @@
 # Change Log
 
+## 0.2.6
+### Added
+* enable logistic output/binary classification. Occurs automatically when `torch.nn.BCELoss()` function passed to the `criterion` parameter.
+
 ## 0.2.5
+### Fixed
 * fixed `init_test_size` of model selection functions working on the full dataset including NAs in the target variable
 
 ## 0.2.4

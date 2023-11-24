@@ -1,5 +1,7 @@
 # nowcast_lstm
 
+**New in v0.2.6**: ability to produce logistic/binary classification estimates by passing `torch.nn.BCELoss()` to the `criterion` parameter.
+
 **New in v0.2.2**: ability to get uncertainty intervals for predictions and predictions on synthetic vintages.
 
 **New in v0.2.0**: ability to get feature contributions to the model and perform automatic hyperparameter tuning and variable selection, no need to write this outside of the library anymore.

@@ -37,11 +37,13 @@ def instantiate_model(
     n_features = model_x_input.shape[
         2
     ]  # 3rd axis of the matrix is the number of features
-    mv_lstm = nowcast_lstm.mv_lstm.MV_LSTM(
-        n_features, n_timesteps, n_hidden, n_layers, dropout
-    )
+    
     if criterion == "":
         criterion = torch.nn.L1Loss()
+    
+    mv_lstm = nowcast_lstm.mv_lstm.MV_LSTM(
+        n_features, n_timesteps, n_hidden, n_layers, dropout, criterion
+    )
 
     # for generating the optimizer
     def generate_optimizer(model, opt_fn=None, opt_kwargs=optimizer_parameters):
