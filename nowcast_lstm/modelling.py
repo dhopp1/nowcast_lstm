@@ -15,6 +15,7 @@ def instantiate_model(
     criterion="",
     optimizer="",
     optimizer_parameters={"lr": 1e-2},
+    seed=np.random.randint(0, 1e9),
 ):
     """Create the network, criterion, and optimizer objects necessary for training a model
 
@@ -27,6 +28,7 @@ def instantiate_model(
         :lr: float: learning rate
         :criterion: torch loss criterion, defaults to MAE
         :optimizer: torch optimizer, defaults to Adam
+        :seed: int: torch manual seed for reproducibility
 
     output: Dict
         :mv_lstm: torch network
@@ -37,12 +39,12 @@ def instantiate_model(
     n_features = model_x_input.shape[
         2
     ]  # 3rd axis of the matrix is the number of features
-    
+
     if criterion == "":
         criterion = torch.nn.L1Loss()
-    
+
     mv_lstm = nowcast_lstm.mv_lstm.MV_LSTM(
-        n_features, n_timesteps, n_hidden, n_layers, dropout, criterion
+        n_features, n_timesteps, n_hidden, n_layers, dropout, criterion, seed
     )
 
     # for generating the optimizer
@@ -110,6 +112,7 @@ def train_model(
             :mv_lstm: trained network
             :train_loss: list of losses per epoch, for informational purposes
     """
+    torch.manual_seed(mv_lstm.seed)
 
     # CUDA if available
     use_cuda = torch.cuda.is_available()
@@ -166,6 +169,7 @@ def predict(X, mv_lstm):
     output:
         :return: np array: array of predictions
     """
+    torch.manual_seed(mv_lstm.seed)
     with torch.no_grad():
         inpt = torch.tensor(X, dtype=torch.float32)
     mv_lstm.init_hidden(inpt.size(0))

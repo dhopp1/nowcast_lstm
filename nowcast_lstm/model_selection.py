@@ -76,28 +76,33 @@ def univariate_order(
     "univariate runs to determine order for additive variable selection"
 
     data = data.copy()
-    
+
     # first valid index of target variable
     start_index = data.loc[lambda x: ~pd.isna(x[target_variable]), :].index[0]
-    start_index = np.max([0, start_index - n_timesteps + 1]) # where to start the data considering n_timesteps
-    data = data.loc[start_index:, :].reset_index(drop = True)
-    
+    start_index = np.max(
+        [0, start_index - n_timesteps + 1]
+    )  # where to start the data considering n_timesteps
+    data = data.loc[start_index:, :].reset_index(drop=True)
+
     # fold train indices
     end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
-    
+
     # check for columns with not enough data for the train set
     shortest_train = data.loc[: end_train_indices[0], :]
-    no_data_cols = [col for col in shortest_train.columns if shortest_train[col].isnull().sum() / len(shortest_train) == 1.0]
-    if (len(no_data_cols) > 0):
+    no_data_cols = [
+        col
+        for col in shortest_train.columns
+        if shortest_train[col].isnull().sum() / len(shortest_train) == 1.0
+    ]
+    if len(no_data_cols) > 0:
         for col in no_data_cols:
             data[col] = 0.0
-    
+
     # columns to assess, excluding date column and target variable
     columns = list(data.columns[data.columns != target_variable][1:])
 
     # initializing performance dictionary
     performance = dict.fromkeys(columns, [])
-
 
     # defining RMSE and MAE
     if performance_metric == "RMSE":
@@ -237,19 +242,25 @@ def variable_selection(
     """
 
     data = data.copy()
-    
+
     # first valid index of target variable
     start_index = data.loc[lambda x: ~pd.isna(x[target_variable]), :].index[0]
-    start_index = np.max([0, start_index - n_timesteps + 1]) # where to start the data considering n_timesteps
-    data = data.loc[start_index:, :].reset_index(drop = True)
-    
+    start_index = np.max(
+        [0, start_index - n_timesteps + 1]
+    )  # where to start the data considering n_timesteps
+    data = data.loc[start_index:, :].reset_index(drop=True)
+
     # fold train indices
     end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
-    
+
     # check for columns with not enough data for the train set
     shortest_train = data.loc[: end_train_indices[0], :]
-    no_data_cols = [col for col in shortest_train.columns if shortest_train[col].isnull().sum() / len(shortest_train) == 1.0]
-    if (len(no_data_cols) > 0):
+    no_data_cols = [
+        col
+        for col in shortest_train.columns
+        if shortest_train[col].isnull().sum() / len(shortest_train) == 1.0
+    ]
+    if len(no_data_cols) > 0:
         for col in no_data_cols:
             data[col] = 0.0
 
@@ -439,7 +450,7 @@ def variable_selection(
                 end_variables = end_variables + [col]
 
     # ensure can't pick a column with no data
-    end_variables = [col for col in end_variables if col not in no_data_cols]    
+    end_variables = [col for col in end_variables if col not in no_data_cols]
 
     return end_variables, np.min(performance)
 
@@ -482,21 +493,27 @@ def hyperparameter_tuning(
     """
 
     data = data.copy()
-    
+
     # first valid index of target variable
     start_index = data.loc[lambda x: ~pd.isna(x[target_variable]), :].index[0]
-    start_index = np.max([0, start_index - np.max(n_timesteps_grid) + 1]) # where to start the data considering n_timesteps
-    data = data.loc[start_index:, :].reset_index(drop = True)
+    start_index = np.max(
+        [0, start_index - np.max(n_timesteps_grid) + 1]
+    )  # where to start the data considering n_timesteps
+    data = data.loc[start_index:, :].reset_index(drop=True)
 
     alpha = 0.0  # legacy to work with same variable selection code
 
     # fold train indices
     end_train_indices = gen_folds(data, n_folds=n_folds, init_test_size=init_test_size)
-    
+
     # check for columns with not enough data for the train set
     shortest_train = data.loc[: end_train_indices[0], :]
-    no_data_cols = [col for col in shortest_train.columns if shortest_train[col].isnull().sum() / len(shortest_train) == 1.0]
-    if (len(no_data_cols) > 0):
+    no_data_cols = [
+        col
+        for col in shortest_train.columns
+        if shortest_train[col].isnull().sum() / len(shortest_train) == 1.0
+    ]
+    if len(no_data_cols) > 0:
         for col in no_data_cols:
             data[col] = 0.0
 

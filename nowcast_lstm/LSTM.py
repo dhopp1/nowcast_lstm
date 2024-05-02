@@ -37,6 +37,7 @@ class LSTM:
         :criterion: torch loss criterion, defaults to MAE
         :optimizer: torch optimizer, defaults to Adam
         :optimizer_parameters: dictionary: list of parameters for optimizer, including learning rate. E.g. {"lr": 1e-2}
+        :seeds: List[int]: what to seed the initial weights for reproducibility. Must be list of same length as n_models parameter
     """
 
     def __init__(
@@ -56,17 +57,22 @@ class LSTM:
         criterion="",
         optimizer="",
         optimizer_parameters={"lr": 1e-2},
+        seeds=[],
     ):
         self.data_setup = import_module("nowcast_lstm.data_setup")
         self.modelling = import_module("nowcast_lstm.modelling")
 
         self.data = data.reset_index(drop=True)
         # check for columns with no data in them
-        self.no_data_cols = [col for col in self.data.columns if self.data[col].isnull().sum() / len(self.data) == 1.0]
-        if (len(self.no_data_cols) > 0):
+        self.no_data_cols = [
+            col
+            for col in self.data.columns
+            if self.data[col].isnull().sum() / len(self.data) == 1.0
+        ]
+        if len(self.no_data_cols) > 0:
             for col in self.no_data_cols:
                 self.data[col] = 0.0
-        
+
         self.target_variable = target_variable
         self.n_timesteps = n_timesteps
 
@@ -75,6 +81,11 @@ class LSTM:
 
         self.train_episodes = train_episodes
         self.n_models = n_models
+
+        if seeds == []:
+            self.seeds = [np.random.randint(0, 1e9) for i in range(self.n_models)]
+        else:
+            self.seeds = seeds
 
         self.batch_size = batch_size
         self.decay = decay
@@ -136,6 +147,7 @@ class LSTM:
                 criterion=self.criterion,
                 optimizer=self.optimizer,
                 optimizer_parameters=self.optimizer_parameters,
+                seed=self.seeds[i],
             )
             mv_lstm = instantiated["mv_lstm"]
             criterion = instantiated["criterion"]
