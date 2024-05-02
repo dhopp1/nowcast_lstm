@@ -16,6 +16,7 @@ def instantiate_model(
     optimizer="",
     optimizer_parameters={"lr": 1e-2},
     seed=np.random.randint(0, 1e9),
+    device="cpu",
 ):
     """Create the network, criterion, and optimizer objects necessary for training a model
 
@@ -29,6 +30,7 @@ def instantiate_model(
         :criterion: torch loss criterion, defaults to MAE
         :optimizer: torch optimizer, defaults to Adam
         :seed: int: torch manual seed for reproducibility
+        :device: str: ["mps", "cuda:0", "cpu"] which device to instantiate the model on
 
     output: Dict
         :mv_lstm: torch network
@@ -44,8 +46,16 @@ def instantiate_model(
         criterion = torch.nn.L1Loss()
 
     mv_lstm = nowcast_lstm.mv_lstm.MV_LSTM(
-        n_features, n_timesteps, n_hidden, n_layers, dropout, criterion, seed
+        n_features,
+        n_timesteps,
+        n_hidden,
+        n_layers,
+        dropout,
+        criterion,
+        seed,
+        device=device,
     )
+    mv_lstm.to(device)
 
     # for generating the optimizer
     def generate_optimizer(model, opt_fn=None, opt_kwargs=optimizer_parameters):
@@ -91,6 +101,7 @@ def train_model(
     num_workers=0,
     shuffle=False,
     quiet=False,
+    device="cpu",
 ):
     """Train the network
 
@@ -106,6 +117,7 @@ def train_model(
         :num_workers: int: number of workers for multi-process data loading
         :shuffle: boolean: whether to shuffle data at every epoch
         :quiet: boolean: whether or not to print the losses in the epoch loop
+        :device: str: ["mps", "cuda:0", "cpu"] which device to instantiate the model on
 
     output:
         :return: Dict
@@ -113,16 +125,16 @@ def train_model(
             :train_loss: list of losses per epoch, for informational purposes
     """
     torch.manual_seed(mv_lstm.seed)
+    torch.cuda.manual_seed_all(mv_lstm.seed)
+    torch.mps.manual_seed(mv_lstm.seed)
 
-    # CUDA if available
-    use_cuda = torch.cuda.is_available()
-    device = torch.device("cuda:0" if use_cuda else "cpu")
     params = {"batch_size": batch_size, "shuffle": shuffle, "num_workers": num_workers}
 
     # PyTorch dataset
     data_generator = torch.utils.data.DataLoader(
         Dataset(
-            torch.tensor(X, dtype=torch.float32), torch.tensor(y, dtype=torch.float32)
+            torch.tensor(X, dtype=torch.float32, device=device),
+            torch.tensor(y, dtype=torch.float32, device=device),
         ),
         **params
     )
@@ -135,9 +147,6 @@ def train_model(
     mv_lstm.train()
     for t in range(train_episodes):
         for batch_X, batch_y in data_generator:
-            # to GPU
-            batch_X, batch_y = batch_X.to(device), batch_y.to(device)
-
             mv_lstm.init_hidden(batch_X.size(0))
             output = mv_lstm(batch_X)
             loss = criterion(output.view(-1), batch_y)
@@ -159,21 +168,25 @@ def train_model(
     }
 
 
-def predict(X, mv_lstm):
+def predict(X, mv_lstm, device="cpu"):
     """Make predictions on a trained network
 
     parameters:
         :X: numpy array: output of `gen_model_input` function, first entry in tuple (X), input variables
         :mv_lstm: torch network: output of `train_model` function, "mv_lstm" entry, trained network
+        :device: str: ["mps", "cuda:0", "cpu"] which device to instantiate the model on
 
     output:
         :return: np array: array of predictions
     """
     torch.manual_seed(mv_lstm.seed)
+    torch.cuda.manual_seed_all(mv_lstm.seed)
+    torch.mps.manual_seed(mv_lstm.seed)
+
     with torch.no_grad():
-        inpt = torch.tensor(X, dtype=torch.float32)
+        inpt = torch.tensor(X, dtype=torch.float32, device=device)
     mv_lstm.init_hidden(inpt.size(0))
-    preds = mv_lstm(inpt).view(-1).detach().numpy()
+    preds = mv_lstm(inpt).cpu().view(-1).detach().numpy()
 
     return preds
 

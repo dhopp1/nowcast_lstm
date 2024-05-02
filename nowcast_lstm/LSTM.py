@@ -1,6 +1,7 @@
 from importlib import import_module
 import numpy as np
 import pandas as pd
+import torch
 import datetime
 
 import nowcast_lstm.data_setup
@@ -127,6 +128,13 @@ class LSTM:
 
         self.feature_contribution_values = None
 
+        if torch.cuda.is_available():
+            self.device = f"cuda:{torch.cuda.current_device()}"
+        elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
+            self.device = "cpu"  # "mps" mps slower than cpu
+        else:
+            self.device = "cpu"
+
     def train(self, num_workers=0, shuffle=False, quiet=False):
         """train the model
 
@@ -148,6 +156,7 @@ class LSTM:
                 optimizer=self.optimizer,
                 optimizer_parameters=self.optimizer_parameters,
                 seed=self.seeds[i],
+                device=self.device,
             )
             mv_lstm = instantiated["mv_lstm"]
             criterion = instantiated["criterion"]
@@ -165,6 +174,7 @@ class LSTM:
                 num_workers=num_workers,
                 shuffle=shuffle,
                 quiet=quiet,
+                device=self.device,
             )
             self.mv_lstm.append(trained["mv_lstm"])
             self.train_loss.append(trained["train_loss"])
@@ -198,7 +208,7 @@ class LSTM:
         # predictions on every model
         preds = []
         for i in range(self.n_models):
-            preds.append(self.modelling.predict(X, self.mv_lstm[i]))
+            preds.append(self.modelling.predict(X, self.mv_lstm[i], device=self.device))
         preds = list(np.mean(preds, axis=0))
 
         prediction_df = pd.DataFrame(
@@ -300,7 +310,7 @@ class LSTM:
         # predictions on every model
         preds = []
         for i in range(self.n_models):
-            preds.append(self.modelling.predict(X, self.mv_lstm[i]))
+            preds.append(self.modelling.predict(X, self.mv_lstm[i], device=self.device))
         preds = list(np.mean(preds, axis=0))
         pred_df = pd.DataFrame(
             {
@@ -406,7 +416,7 @@ class LSTM:
         # predictions on every model
         preds = []
         for i in range(self.n_models):
-            preds.append(self.modelling.predict(X, self.mv_lstm[i]))
+            preds.append(self.modelling.predict(X, self.mv_lstm[i], device=self.device))
 
         point_preds = list(np.mean(preds, axis=0))
 
@@ -532,7 +542,7 @@ class LSTM:
         # predictions on every model
         preds = []
         for i in range(self.n_models):
-            preds.append(self.modelling.predict(X, self.mv_lstm[i]))
+            preds.append(self.modelling.predict(X, self.mv_lstm[i], device=self.device))
 
         point_preds = list(np.mean(preds, axis=0))
 
