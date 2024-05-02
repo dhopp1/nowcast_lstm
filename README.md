@@ -33,7 +33,7 @@ While neural networks are flexible and this framework may be able to get sensibl
 Further explanation of the background problem can be found in [this paper](https://unctad.org/system/files/official-document/ser-rp-2018d9_en.pdf). Further explanation and results can be found in [this](https://www.researchgate.net/publication/363509881_Economic_Nowcasting_with_Long_Short-Term_Memory_Artificial_Neural_Networks_LSTM) paper in the Journal of Official Statistics.
 
 ## R, MATLAB, and Julia wrappers 
-[R](https://github.com/dhopp1/nowcastLSTM),  [MATLAB](https://github.com/dhopp1/nowcast_lstm_matlab), and [Julia](https://github.com/dhopp1/NowcastLSTM.jl) wrappers exist for this Python library. Python and some Python libraries still need to be installed on your system, but full functionality from R, MATLAB, and Julia can be obtained with the wrappers without any Python knowledge.
+[R](https://github.com/dhopp1/nowcastLSTM),  [MATLAB](https://github.com/dhopp1/nowcast_lstm_matlab), and [Julia](https://github.com/dhopp1/NowcastLSTM.jl) wrappers exist for this Python library. Python and some Python libraries still need to be installed on your system, but full functionality from R can be obtained with the wrappers without any Python knowledge. The MATLAB and Julia wrappers work with older versions of the library but are no longer being mantained and updated to work with the newest features.
 
 
 ## Quick usage
@@ -45,6 +45,7 @@ from nowcast_lstm.LSTM import LSTM
 # note that if a column has no data in it, i.e., is all NAs, its values will be replaced with 0. This won't affect model performance and will ensure that the model can still be trained
 # a list of columns with no data in them can be accessed with `model.no_data_cols`
 model = LSTM(data, "target_col_name", n_timesteps=12) # default parameters with 12 timestep history
+#model = LSTM(data, "target_col_name", n_timesteps=12, n_models=10, seeds=list(range(10)) # For reproducibility on a single machine/system, give a list of manual seeds as long as the n_models parameter. Reproducibility across machines is not guaranteed.
 
 model.X # array of the transformed training dataset
 model.y # array of the target values

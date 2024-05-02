@@ -1,4 +1,8 @@
 # Change Log
+## 0.2.7
+### Added
+* reproducible results on a single machine via the `seeds` parameter.
+* proper CUDA support. Automatic detection if you have a CUDA-enabled machine.
 
 ## 0.2.6
 ### Added

@@ -91,7 +91,7 @@ class TestModelling(unittest.TestCase):
             model_input[0], model_input[1], model, crit, opt, quiet=True
         )
         model = model_result["mv_lstm"]
-        preds = modelling.predict(model_input[0], model)
+        preds = modelling.predict(model_input[0], model, model.device)
 
         self.assertEqual(len(preds), 2)
 
